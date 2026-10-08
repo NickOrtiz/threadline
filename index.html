@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#f3f0e9" />
+  <title>Threadline — Calm Work OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./theme.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#/" aria-label="Threadline home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Threadline</span>
+      </a>
+
+      <nav id="primary-nav" class="nav-stack"></nav>
+
+      <div class="sidebar-spacer"></div>
+      <a class="nav-link settings-link" id="settings-link" href="#/settings"><span class="nav-icon">⚙</span><span>Settings</span></a>
+      <section class="workspace-switcher" aria-label="Current workspace">
+        <span class="eyebrow">Workspace</span>
+        <button class="workspace-button" type="button">
+          <span class="workspace-glyph">A</span>
+          <span><strong>Acme Studio</strong><small>Work</small></span>
+          <span class="chevron">⌄</span>
+        </button>
+      </section>
+    </aside>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <button class="mobile-nav-button" id="mobile-nav-button" aria-label="Toggle navigation">☰</button>
+        <button class="search-trigger" type="button" id="search-trigger">
+          <span class="search-icon">⌕</span>
+          <span>Search Threadline</span>
+          <kbd>⌘ K</kbd>
+        </button>
+        <div class="topbar-actions">
+          <button class="quiet-button" aria-label="Notifications">◌<span class="notification-dot"></span></button>
+          <button class="avatar" aria-label="Settings">··</button>
+        </div>
+      </header>
+
+      <div id="app" class="app-view" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <dialog id="command-dialog" class="command-dialog">
+    <form method="dialog" class="command-shell">
+      <div class="command-input-row">
+        <span>⌕</span>
+        <input id="command-input" autofocus placeholder="Search projects, tasks, decisions, learnings…" />
+        <button class="quiet-button" value="cancel">Esc</button>
+      </div>
+      <div id="command-results" class="command-results"></div>
+    </form>
+  </dialog>
+
+  <script src="./app.js"></script>
+  <script src="./loader.js"></script>
+</body>
+</html>

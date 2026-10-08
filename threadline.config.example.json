@@ -1,0 +1,34 @@
+{
+  "$comment": "Copy to threadline.config.json and edit. Secrets live in .env, never here.",
+  "workspace": { "id": "work", "name": "Acme Studio", "mode": "Work" },
+  "displayName": "Alex",
+  "timezone": "America/New_York",
+  "workday": { "start": "09:00", "end": "17:00" },
+  "teamwork": {
+    "site": "https://your-company.teamwork.com",
+    "completedLookbackDays": 30,
+    "excludeProjectIds": ["100001"],
+    "projects": {
+      "100002": { "id": "northwind", "name": "Northwind" },
+      "100003": { "id": "juniper", "name": "Juniper" }
+    }
+  },
+  "calendar": {
+    "calendarIds": ["primary"],
+    "lookaheadDays": 7
+  },
+  "codeHosts": [
+    {
+      "id": "github-work",
+      "type": "github",
+      "host": "github.com",
+      "auth": { "gh": { "user": "octocat" } },
+      "repos": {
+        "acme/northwind-website": "northwind",
+        "acme/juniper-*": "juniper",
+        "acme-internal/*": null
+      }
+    }
+  ],
+  "server": { "port": 8080, "syncIntervalMinutes": 15 }
+}

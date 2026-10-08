@@ -1,0 +1,51 @@
+{
+  "$comment": "Illustrative shape only; convert this into Zod/TypeScript next.",
+  "daily": {
+    "date": "Thursday, October 8",
+    "headline": "Good morning, Alex.",
+    "subhead": "Here is the plan. Everything else can wait.",
+    "summary": "A short synthesized briefing.",
+    "capacity": {
+      "focusHours": 3.25,
+      "meetingsHours": 2.5,
+      "allocation": 72,
+      "status": "Healthy"
+    }
+  },
+  "attention": [
+    {
+      "id": "attn-example",
+      "level": "now",
+      "source": "Slack",
+      "sourceRef": "#project-channel",
+      "projectId": "project-id",
+      "title": "A decision is needed",
+      "detail": "Source-neutral explanation.",
+      "why": "Why Threadline surfaced it.",
+      "due": "Today",
+      "action": "Concrete next action",
+      "estimatedEffort": "5 min",
+      "status": "Needs decision"
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-id",
+      "projectId": "project-id",
+      "title": "Persistent work context",
+      "objective": "What this thread is trying to accomplish.",
+      "nextAction": "Concrete next step.",
+      "openQuestions": [],
+      "waitingOn": [],
+      "linked": [],
+      "notes": [],
+      "continuity": {
+        "lastActive": "timestamp",
+        "whereYouWere": "Human-readable state",
+        "changedSince": [],
+        "restart": "Fastest route back into the work"
+      },
+      "candidateLearnings": []
+    }
+  ]
+}

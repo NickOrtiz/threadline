@@ -1,0 +1,30 @@
+{
+  "name": "threadline-prototype",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "prestart": "node scripts/check-node.cjs",
+    "sync": "node --env-file-if-exists=.env src/sync.ts",
+    "auth:google": "node --env-file-if-exists=.env src/adapters/calendar/auth.ts",
+    "check": "node src/check.ts",
+    "typecheck": "tsc --noEmit",
+    "serve": "node src/server.ts --no-sync",
+    "presync": "node scripts/check-node.cjs",
+    "preauth:google": "node scripts/check-node.cjs",
+    "precheck": "node scripts/check-node.cjs",
+    "pretypecheck": "node scripts/check-node.cjs",
+    "preserve": "node scripts/check-node.cjs"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.2",
+    "typescript": "6.0.3"
+  }
+}

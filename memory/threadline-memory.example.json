@@ -1,0 +1,16 @@
+{
+  "projects": {
+    "northwind": {
+      "role": "Front-end architecture lead",
+      "objective": "Ship a reusable, accessible component system for the new site.",
+      "decisions": [
+        { "id": "dec-1", "title": "Use disclosure behavior for nested mobile navigation", "date": "Oct 7", "rationale": "Keyboard and focus behavior are more predictable than a custom drawer." }
+      ],
+      "learnings": []
+    }
+  },
+  "threads": [],
+  "goals": [],
+  "knowledge": [],
+  "review": null
+}

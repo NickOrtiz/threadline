@@ -1,0 +1,10 @@
+node_modules/
+
+# Secrets
+.env
+.threadline/
+
+# Your personal setup and data. Committed examples sit beside them.
+threadline.config.json
+memory/threadline-memory.json
+data/
