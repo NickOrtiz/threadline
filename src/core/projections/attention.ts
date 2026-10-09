@@ -17,8 +17,12 @@ export interface SignalContext {
   hasCalendar: boolean;
   today: string;
   generatedAt: string;
-  /** Focus minutes available over the next 5 weekdays. */
+  /** Focus minutes available over the next 5 workdays, counting today from now. */
   focusMinutesAhead: number;
+  /** Today's remaining time against the work due today. Null outside the workday. */
+  todayFit: { leftMinutes: number; nextWorkday: string } | null;
+  /** True for weekends and full out-of-office days. */
+  isDayOff: (date: string) => boolean;
 }
 
 export function deriveSignals(ctx: SignalContext): Signal[] {
@@ -69,6 +73,7 @@ export function deriveSignals(ctx: SignalContext): Signal[] {
   }
 
   signals.push(...codeReviewSignals(ctx, rule));
+  signals.push(...timeSignals(ctx, rule));
 
   for (const [a, b] of conflicts(ctx.events, ctx.today)) {
     signals.push({
@@ -99,6 +104,49 @@ export function deriveSignals(ctx: SignalContext): Signal[] {
   }
 
   return capNow(signals);
+}
+
+const weekdayName = (date: string) => new Date(Date.parse(`${date}T12:00:00Z`)).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+
+/** Does today's work fit the time left, and is anything due on a day you are out? */
+function timeSignals(ctx: SignalContext, rule: (name: string, confidence?: number) => Signal['derivation']): Signal[] {
+  const out: Signal[] = [];
+  const active = ctx.ranked.filter(r => !r.stale && r.item.status !== 'waiting' && r.item.status !== 'blocked');
+
+  if (ctx.hasCalendar && ctx.todayFit) {
+    const dueNow = active.filter(r => r.daysUntilDue !== null && r.daysUntilDue <= 0);
+    const due = dueNow.reduce((s, r) => s + (r.item.estimatedMinutes ?? 0), 0);
+    const unestimated = dueNow.filter(r => !r.item.estimatedMinutes).length;
+    if (due > ctx.todayFit.leftMinutes) {
+      const next = ctx.todayFit.nextWorkday;
+      const nextIsTomorrow = daysBetween(ctx.today, next) === 1;
+      out.push({
+        id: 'sig-capacity-today', type: 'capacity_risk', level: 'now',
+        subject: { kind: 'capacity', id: 'today' }, projectId: null,
+        title: "Today's work won't fit",
+        detail: `${minutesLabel(due)} of estimated work is due today. ${ctx.todayFit.leftMinutes ? `You have ${minutesLabel(ctx.todayFit.leftMinutes)} of focus time left.` : 'You have no focus time left today.'}` +
+          (unestimated ? ` ${unestimated} more task${unestimated === 1 ? ' has' : 's have'} no estimate.` : ''),
+        why: nextIsTomorrow ? 'Whatever slips moves to tomorrow.' : `Whatever slips waits until ${weekdayName(next)}, your next working day.`,
+        action: 'Move a due date, or tell the team now', dueAt: ctx.today, derivation: rule('today-fit', 0.9),
+      });
+    }
+  }
+
+  if (ctx.hasCalendar) {
+    for (const r of active) {
+      const d = r.daysUntilDue;
+      if (d === null || d < 1 || d > 7 || !r.item.dueAt || !ctx.isDayOff(r.item.dueAt)) continue;
+      out.push({
+        id: `sig-dayoff-${r.item.id}`, type: 'deadline_risk', level: 'watch',
+        subject: { kind: 'workItem', id: r.item.id }, projectId: r.item.projectId,
+        title: r.item.title,
+        detail: `Due ${weekdayName(r.item.dueAt)}, when you are not working.`,
+        why: 'It has to be done before then, or the date has to move.',
+        action: 'Finish it earlier, or move the date', dueAt: r.item.dueAt, derivation: rule('due-on-day-off'),
+      });
+    }
+  }
+  return out;
 }
 
 /** PR waits shorter than this are normal and not worth a signal. */
@@ -155,7 +203,7 @@ const STATUS: Record<Signal['type'], string> = {
   capacity_risk: 'Over capacity', response_needed: 'Needs response', blocked: 'Blocked', waiting: 'Waiting',
   review_requested: 'Review requested', goal_risk: 'Goal risk', important_change: 'Ready',
 };
-const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'Threadline' };
+const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do' };
 
 export function toAttentionItems(
   signals: Signal[],

@@ -4,6 +4,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { ThreadlineView } from './core/schema/view.ts';
 import { Memory, MEMORY_PATH } from './storage/memory.ts';
+import { TodoFile, TODOS_PATH } from './storage/todos.ts';
 import { loadConfig } from './core/config.ts';
 import type { z } from 'zod';
 
@@ -11,6 +12,7 @@ const targets: [string, z.ZodType][] = [
   ...(await readdir('fixtures')).filter(f => f.endsWith('.json')).map((f): [string, z.ZodType] => [`fixtures/${f}`, ThreadlineView]),
   [MEMORY_PATH, Memory],
   ['memory/threadline-memory.example.json', Memory],
+  [TODOS_PATH, TodoFile],
   ['data/state.json', ThreadlineView],
 ];
 

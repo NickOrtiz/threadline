@@ -230,6 +230,7 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | `calendar.lookaheadDays` | `7` | How many days ahead to read. |
 | `server.port` | `8080` | Port for `npm start` and `npm run serve`. The `PORT` environment variable overrides it. |
 | `server.syncIntervalMinutes` | `15` | How often `npm start` syncs. |
+| `continuity.awayHours` | `8` | How long a gap must be before "while you were away" appears. |
 | `codeHosts[]` | `[]` | GitHub connections. See [Connect GitHub](#connect-github). |
 
 `npm run check` validates this file.
@@ -239,6 +240,7 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | Command | What it does |
 | --- | --- |
 | `npm start` | Serves the UI at `http://localhost:8080`, syncs at start, then syncs every `server.syncIntervalMinutes`. Open pages update in place. |
+| `npm run sync -- --rebuild` | Rebuilds `data/state.json` from the last sync plus your to-dos, without fetching. The server runs this after every to-do change. |
 | `npm run sync` | Fetches every configured source, then writes `data/state.json` for the UI and `data/entities.json` for debugging. It prints one line per source and the repos it ignored. It exits with an error only when no source succeeds. |
 | `npm run auth:google` | One-time Google sign-in. Run it again if Google says the token expired or was revoked. |
 | `npm run serve` | Serves the UI without automatic sync. |
@@ -255,13 +257,59 @@ Open **Settings** at the bottom of the sidebar, then choose **Live** or a fixtur
 
 The workspace card at the bottom of the sidebar says "Fixture data" or "Live · <sync time>". Select it to open Settings, which lists each source's sync result.
 
-To add a fixture, put the JSON file in `fixtures/` and add its name to `FIXTURES` in `loader.js`.
+Two fixtures ship with the project. `normal-day` is a typical weekday. `returning-after-weekend` is a Monday after time away, with to-dos and a "while you were away" card. To add a fixture, put the JSON file in `fixtures/` and add its name to `FIXTURES` in `loader.js`.
 
 ### Settings and theme
 
 The Settings page holds per-browser preferences: the theme (System, Light, or Dark) and the data source. They are saved in this browser's local storage, so they do not sync across browsers or machines. System follows the operating system's light or dark mode and changes with it.
 
 All colors in `styles.css` are tokens on `:root`. The dark theme is one block under `:root[data-theme="dark"]` that only overrides tokens. `theme.js` runs in `<head>` and sets `data-theme` before the page paints. To add a color, define it in both blocks.
+
+## To-dos
+
+Some work has no ticket: updating a local toolchain, rebuilding a database, a follow-up you promised in a meeting. Add it as a to-do.
+
+- On the home page, select **+ Add to-do** in the Next up card. You can also open the **To-dos** page from that card.
+- A to-do has a title, plus an optional project, due date, and estimate.
+- To-dos rank with your Teamwork and GitHub work. They can become your current focus, they count toward today's capacity, and they get the same due-date and stale-date rules.
+- Check one off in Next up, in the focus card, or on the To-dos page. Done to-dos stay on the To-dos page for 7 days, and they count toward the project's weekly wins.
+
+To-dos live in `memory/todos.json`, which is git-ignored. Adding and editing needs `npm start`, because the page saves through the local server. With a fixture or a static server, the To-dos page is read-only.
+
+## While you were away
+
+When you come back after a gap of 8 hours or more, the home page shows what changed in your sources since you left:
+
+- Work newly assigned to you, completed, or no longer on your list.
+- Due dates that moved.
+- Pull request reviews: approved, changes requested, or checks failing.
+- Meetings added, moved, or removed in the week ahead.
+- A count of other updates per project, so small edits don't each get a line.
+
+Changes are grouped by project. Select **Got it** to dismiss the card until your next gap.
+
+How it works:
+
+- **Snapshots.** After each complete sync, Threadline saves a compact snapshot to `data/snapshots/`. It writes a new file only when something changed, and it deletes snapshots older than 30 days. If a source fails, no snapshot is saved, because the missing records would look like removed work.
+- **Sessions.** While the dashboard is open and visible, the page tells the server every 5 minutes. A pause of 30 minutes or more ends a session. Activity is stored in `data/activity.json`.
+- **The comparison.** On your first visit after a gap of `continuity.awayHours`, Threadline compares the snapshot from when you left with the latest sync. It is a rule-based comparison, with no AI. Your own to-dos are left out.
+
+The card needs `npm start`, because the server tracks your sessions. It starts working after the first complete sync, since there is nothing to compare against before that.
+
+## Today's capacity
+
+Capacity is about the rest of today, not the whole day:
+
+- **Focus time** counts open windows of 30 minutes or more from now until the end of your workday, plus focus blocks still ahead. Out-of-office time is subtracted.
+- **Allocated** is the estimated work due today, as a percentage of that focus time.
+- **Days off** are weekends and days where out-of-office covers your whole workday. A one-hour out-of-office block is busy time, not a day off.
+
+Two attention rules use this:
+
+| Rule | Level |
+| --- | --- |
+| Estimated work due today is more than the focus time left | NOW. It names your next working day, skipping days off. |
+| A task is due within 7 days on a day you are off | WATCH. |
 
 ## Automatic sync
 
@@ -286,6 +334,8 @@ Automatic sync only runs while `npm start` is running in a terminal. A macOS bac
 | `data/state.json`, `data/entities.json` | Sync output with real work data | No |
 | `threadline.config.json` | Your settings, project names, and repo mapping | No |
 | `memory/threadline-memory.json` | Threads, goals, knowledge, and project context you write by hand | No |
+| `memory/todos.json` | Your to-dos | No |
+| `data/snapshots/`, `data/activity.json` | Sync history and your dashboard sessions, for "while you were away" | No |
 | `threadline.config.example.json` | Example settings with dummy values | Yes |
 | `memory/threadline-memory.example.json` | Example memory with dummy values | Yes |
 | `fixtures/*.json` | Demo data with dummy names | Yes |
@@ -366,6 +416,7 @@ There are two layers.
 | v0.2 | Entity | Added `WorkItem.codeReview`: `role` (`author` or `reviewer`), `state` (`draft`, `awaiting_review`, `changes_requested`, or `approved`), `checks` (`passing`, `failing`, `pending`, or null), and `ref` (such as `"owner/repo #12"`). Both GitHub PRs and GitLab merge requests use it. |
 | v0.2 | Entity | Added `gitlab` to `SourceType`. |
 | v0.3 | View | Added `daily.greetingName` and `meta.timezone`. For live data, the UI builds the greeting and date from these at render time and re-checks them each minute, so an open page rolls over at noon, 5 PM, and midnight. Fixtures keep their authored `daily.headline` and `daily.date`. |
+| v0.4 | View | Added `todos[]`, `continuity`, and `todoId` on `focus` and `nextUp[]`. `daily.capacity.focusHours` now means focus time left today, and `allocation` is due work against that time. |
 
 All view additions are optional, so older fixtures stay valid.
 

@@ -47,6 +47,10 @@ export const Config = z.object({
     lookaheadDays: z.number().int().positive().default(7),
   }),
   codeHosts: z.array(CodeHost).default([]),
+  continuity: z.object({
+    /** A gap at least this long between sessions shows "while you were away". */
+    awayHours: z.number().positive().default(8),
+  }).default({ awayHours: 8 }),
   server: z.object({
     port: z.number().int().default(8080),
     /** How often `npm start` re-runs the sync. */

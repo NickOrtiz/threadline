@@ -117,13 +117,13 @@ window.startThreadline = (initial) => {
         <div class="metric"><span class="metric-label">Why it matters</span><span class="metric-value">${esc(f.reason)}</span></div>
         <div class="metric"><span class="metric-label">Blockers</span><span class="metric-value">${esc(f.blockers.join(' · ') || 'None')}</span></div>
       </div>
-      ${f.threadId ? `<a class="primary-button" href="#/threads/${f.threadId}">Open work context <span>→</span></a>` : f.sourceUrl ? `<a class="primary-button" href="${esc(f.sourceUrl)}" target="_blank" rel="noopener">Open task <span>↗</span></a>` : ''}
+      ${f.todoId && canEdit() ? `<button type="button" class="primary-button" data-todo-done="${esc(f.todoId)}">Mark done <span>✓</span></button>` : f.threadId ? `<a class="primary-button" href="#/threads/${f.threadId}">Open work context <span>→</span></a>` : f.sourceUrl ? `<a class="primary-button" href="${esc(f.sourceUrl)}" target="_blank" rel="noopener">Open task <span>↗</span></a>` : ''}
     </div></article>`;
   }
 
   function nextUpCard() {
-    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">↳</span>Next up</div><a class="subtle-link" href="#/attention">View firewall →</a></div><ol class="next-list">
-      ${D.nextUp.length ? D.nextUp.map((x,i)=>`<li class="next-item"><span class="rank">${i+1}</span><div class="next-main"><strong>${x.sourceUrl?`<a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title)}</strong><div class="next-meta"><span>${esc(x.source)}</span>${projectName(x.projectId)?`<span>·</span><span>${esc(projectName(x.projectId))}</span>`:''}</div></div><span class="next-estimate">${esc(x.estimate)}</span></li>`).join('') : empty('Nothing else is queued.')}
+    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">↳</span>Next up</div><div class="card-links">${canEdit() ? `<button type="button" class="subtle-link link-button" data-toggle-add>+ Add to-do</button>` : ''}<a class="subtle-link" href="#/todos">To-dos →</a></div></div>${canEdit() ? todoForm(true) : ''}<ol class="next-list">
+      ${D.nextUp.length ? (() => { let n = 0; return D.nextUp.map(x=>`<li class="next-item">${x.todoId && canEdit() ? `<button type="button" class="todo-check" data-todo-done="${esc(x.todoId)}" aria-label="Mark ${esc(x.title)} done"></button>` : `<span class="rank">${++n}</span>`}<div class="next-main"><strong>${x.sourceUrl?`<a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title)}</strong><div class="next-meta"><span>${esc(x.source)}</span>${projectName(x.projectId)?`<span>·</span><span>${esc(projectName(x.projectId))}</span>`:''}</div></div><span class="next-estimate">${esc(x.estimate)}</span></li>`).join(''); })() : empty('Nothing else is queued.')}
     </ol></div></article>`;
   }
 
@@ -139,7 +139,7 @@ window.startThreadline = (initial) => {
 
   function homePage(){
     const g = greetingParts();
-    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${D.projects.slice(0,3).map(p=>`<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
+    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${D.projects.slice(0,3).map(p=>`<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
   }
 
   function attentionPage(){
@@ -256,6 +256,75 @@ window.startThreadline = (initial) => {
     </div>`;
   }
 
+  /** Editing needs `npm start` (the local server) and live data. */
+  const canEdit = () => !!window.THREADLINE_SYNC && D.meta.dataMode === 'live' && window.THREADLINE_SOURCE?.mode === 'live';
+  let addOpen = false;
+  let showAllChanges = false;
+
+  function todoForm(collapsible) {
+    if (collapsible && !addOpen) return '';
+    const projects = D.projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+    return `<form class="todo-form" data-todo-form>
+      <input name="title" required maxlength="200" placeholder="What needs doing? e.g. Update local Node version" aria-label="To-do" autocomplete="off" />
+      <div class="todo-form-row">
+        <label><span>Project</span><select name="projectId"><option value="">None</option>${projects}</select></label>
+        <label><span>Due</span><input type="date" name="dueAt" /></label>
+        <label><span>Estimate</span><select name="estimatedMinutes"><option value="">—</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option><option value="240">4 h</option></select></label>
+        <button type="submit" class="secondary-button">Add</button>
+      </div>
+      <p class="todo-error" data-todo-error hidden></p>
+    </form>`;
+  }
+
+  function todoRow(t) {
+    const meta = [projectName(t.projectId), t.dueAt ? t.due : null, t.estimatedMinutes ? (t.estimatedMinutes < 60 ? `${t.estimatedMinutes} min` : `${t.estimatedMinutes / 60} h`) : null].filter(Boolean);
+    const done = t.status === 'done';
+    const edit = canEdit();
+    return `<li class="todo-row ${done ? 'done' : ''}">
+      ${edit ? `<button type="button" class="todo-check ${done ? 'checked' : ''}" ${done ? `data-todo-reopen="${esc(t.id)}" aria-label="Reopen ${esc(t.title)}"` : `data-todo-done="${esc(t.id)}" aria-label="Mark ${esc(t.title)} done"`}></button>` : `<span class="todo-check ${done ? 'checked' : ''}" aria-hidden="true"></span>`}
+      <div class="todo-main"><strong>${esc(t.title)}</strong>${meta.length ? `<small>${esc(meta.join(' · '))}</small>` : ''}</div>
+      ${edit ? `<button type="button" class="todo-delete" data-todo-delete="${esc(t.id)}" aria-label="Delete ${esc(t.title)}">×</button>` : ''}
+    </li>`;
+  }
+
+  function todosPage() {
+    const todos = D.todos || [];
+    const open = todos.filter(t => t.status === 'open');
+    const done = todos.filter(t => t.status === 'done');
+    const note = canEdit() ? '' : `<p class="settings-hint">${window.THREADLINE_SYNC ? 'To-dos can be edited with live data only.' : 'Start Threadline with <code>npm start</code> to add and edit to-dos.'}</p>`;
+    return `<div class="page todos-page">${pageHeader('To-dos','Work without a ticket.','Local setup, updates, follow-ups. They rank with your Teamwork and GitHub work and get the same due-date rules.',pill(`${open.length} open`,'blue'))}
+      ${canEdit() ? todoForm(false) : note}
+      <section class="content-section"><h2>Open</h2>${open.length ? `<ul class="todo-list">${open.map(todoRow).join('')}</ul>` : '<p>Nothing open.</p>'}</section>
+      ${done.length ? `<section class="content-section"><h2>Done this week</h2><ul class="todo-list">${done.map(todoRow).join('')}</ul></section>` : ''}
+    </div>`;
+  }
+
+  function continuityCard_home() {
+    const c = D.continuity;
+    if (!c) return '';
+    const byProject = new Map();
+    for (const ch of c.changes) {
+      const key = ch.projectId || '';
+      if (!byProject.has(key)) byProject.set(key, []);
+      byProject.get(key).push(ch);
+    }
+    const LIMIT = 8;
+    let shown = 0;
+    const groups = [...byProject.entries()].map(([pid, list]) => {
+      const items = showAllChanges ? list : list.slice(0, Math.max(0, LIMIT - shown));
+      shown += items.length;
+      if (!items.length) return '';
+      const label = pid ? projectName(pid) || pid : 'Calendar and other';
+      return `<div class="away-group"><h4>${esc(label)}</h4><ul>${items.map(ch => `<li>${ch.url ? `<a href="${esc(ch.url)}" target="_blank" rel="noopener">${esc(ch.text)}</a>` : esc(ch.text)}</li>`).join('')}</ul></div>`;
+    }).join('');
+    const hidden = c.changes.length - shown;
+    return `<section class="away-card" aria-label="While you were away">
+      <div class="away-head"><div><span class="kicker">While you were away · ${esc(c.awayLabel)}</span><h3>Since ${esc(c.sinceLabel)}</h3></div>
+      ${canEdit() ? `<button type="button" class="secondary-button" data-ack-away>Got it</button>` : ''}</div>
+      ${c.changes.length ? `<div class="away-groups">${groups}</div>${hidden > 0 ? `<button type="button" class="subtle-link link-button" data-show-all-changes>Show ${hidden} more</button>` : ''}` : '<p>Nothing changed in your sources while you were away.</p>'}
+    </section>`;
+  }
+
   function notFound(){ return `<div class="page">${pageHeader('404','Nothing here.','The route exists outside the current prototype.')}</div>`; }
 
   function route(keepScroll=false){
@@ -273,6 +342,7 @@ window.startThreadline = (initial) => {
     else if(path==='/knowledge') app.innerHTML=knowledgePage();
     else if(path==='/review') app.innerHTML=reviewPage();
     else if(path==='/settings') app.innerHTML=settingsPage();
+    else if(path==='/todos') app.innerHTML=todosPage();
     else app.innerHTML=notFound();
     bindPageEvents();
     if(!keepScroll) window.scrollTo({top:0,behavior:'instant'});
@@ -290,6 +360,40 @@ window.startThreadline = (initial) => {
       e.currentTarget.disabled = true; e.currentTarget.textContent = 'Syncing…';
       try { await fetch('/api/sync', { method: 'POST' }); } catch {}
     });
+    const act = async (fn, el) => {
+      if (el) el.disabled = true;
+      try { await fn(); } catch (err) { if (el) el.disabled = false; alert(`Threadline: ${err.message}`); }
+    };
+    document.querySelectorAll('[data-todo-done]').forEach(b => b.addEventListener('click', () => act(() => window.threadlineApi(`/api/todos/${b.dataset.todoDone}`, 'PATCH', { status: 'done' }), b)));
+    document.querySelectorAll('[data-todo-reopen]').forEach(b => b.addEventListener('click', () => act(() => window.threadlineApi(`/api/todos/${b.dataset.todoReopen}`, 'PATCH', { status: 'open' }), b)));
+    document.querySelectorAll('[data-todo-delete]').forEach(b => b.addEventListener('click', () => {
+      if (confirm('Delete this to-do?')) act(() => window.threadlineApi(`/api/todos/${b.dataset.todoDelete}`, 'DELETE', {}), b);
+    }));
+    document.querySelector('[data-toggle-add]')?.addEventListener('click', () => { addOpen = !addOpen; route(true); if (addOpen) document.querySelector('[data-todo-form] input[name=title]')?.focus(); });
+    document.querySelector('[data-show-all-changes]')?.addEventListener('click', () => { showAllChanges = true; route(true); });
+    document.querySelector('[data-ack-away]')?.addEventListener('click', e => act(() => window.threadlineApi('/api/seen', 'POST', { acknowledge: true }), e.currentTarget));
+    document.querySelector('[data-todo-form]')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const form = e.currentTarget, data = new FormData(form), error = form.querySelector('[data-todo-error]');
+      const body = {
+        title: String(data.get('title') || '').trim(),
+        projectId: data.get('projectId') || null,
+        dueAt: data.get('dueAt') || null,
+        estimatedMinutes: data.get('estimatedMinutes') ? Number(data.get('estimatedMinutes')) : null,
+      };
+      if (!body.title) return;
+      form.querySelector('button[type=submit]').disabled = true;
+      try {
+        await window.threadlineApi('/api/todos', 'POST', body);
+        form.reset();
+        addOpen = false;
+        document.activeElement?.blur(); // let the update apply now
+      } catch (err) {
+        error.hidden = false; error.textContent = err.message;
+      } finally {
+        form.querySelector('button[type=submit]').disabled = false;
+      }
+    });
     document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{activeDetailTab=btn.dataset.tab;route();}));
     const addNote=document.getElementById('add-note');
     if(addNote) addNote.addEventListener('click',()=>{const input=document.getElementById('new-note');if(!input.value.trim())return; const path=location.hash.split('/'); const t=thread(path[path.length-1]); t.notes.push({id:`note-${Date.now()}`,at:'Just now',body:input.value.trim()}); input.value=''; route();});
@@ -303,6 +407,7 @@ window.startThreadline = (initial) => {
     D.goals.forEach(x=>rows.push({type:'Goal',title:x.title,meta:x.status,url:`#/goals/${x.id}`}));
     D.knowledge.forEach(x=>rows.push({type:x.kind,title:x.title,meta:project(x.projectId)?.name||'Knowledge',url:'#/knowledge'}));
     D.attention.forEach(x=>rows.push({type:'Attention',title:x.title,meta:x.source,url:'#/attention'}));
+    (D.todos||[]).filter(x=>x.status==='open').forEach(x=>rows.push({type:'To-do',title:x.title,meta:projectName(x.projectId)||'To-do',url:'#/todos'}));
     return rows;
   }
   let SEARCH=searchIndex();

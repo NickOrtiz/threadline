@@ -2,17 +2,25 @@
 
 import type { EntityStore } from '../schema/entities.ts';
 import { ThreadlineView, type Focus, type NextUpItem } from '../schema/view.ts';
+import type { z } from 'zod';
+import type { ContinuityView } from '../schema/view.ts';
+import type { Todo } from '../../storage/todos.ts';
 import type { Memory } from '../../storage/memory.ts';
 import type { Config } from '../config.ts';
-import { dueLabel, formatLongDate, localDate, minutesLabel, relativeActivity } from '../time.ts';
+import { atTime, dueLabel, formatLongDate, localDate, minutesLabel, relativeActivity } from '../time.ts';
 import { rankWorkItems, type RankedItem } from './workload.ts';
-import { dayCapacity, deriveSchedule, focusMinutesAhead } from './today.ts';
+import { dayCapacity, deriveSchedule, focusMinutesAhead, isDayOff, nextWorkday } from './today.ts';
 import { deriveSignals, toAttentionItems } from './attention.ts';
 import { deriveProjects } from './projects.ts';
 
-const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'Threadline' };
+const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do' };
 
-export function buildView(store: EntityStore, memory: Memory, config: Config, now: Date): ThreadlineView {
+export interface ViewExtras {
+  todos: Todo[];
+  continuity: z.infer<typeof ContinuityView> | null;
+}
+
+export function buildView(store: EntityStore, memory: Memory, config: Config, now: Date, extras: ViewExtras = { todos: [], continuity: null }): ThreadlineView {
   const today = localDate(now);
   const generatedAt = store.syncedAt;
   const hasCalendar = store.sourceStatus.some(s => s.type === 'google-calendar' && s.ok);
@@ -24,10 +32,16 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
   const actionable = ranked.filter(r => !r.stale && r.item.status !== 'waiting' && r.item.status !== 'blocked');
   const top = actionable[0];
 
-  const cap = dayCapacity(store.events, today, config.workday);
+  // Today's focus time counts only what is left from now.
+  const cap = dayCapacity(store.events, today, config.workday, now);
+  const dayOff = (date: string) => isDayOff(store.events, date, config.workday);
+  const offToday = hasCalendar && dayOff(today);
+  const inWorkday = now < atTime(today, config.workday.end);
   const signals = deriveSignals({
     ranked, events: store.events, hasCalendar, today, generatedAt,
-    focusMinutesAhead: focusMinutesAhead(store.events, today, 5, config.workday),
+    focusMinutesAhead: focusMinutesAhead(store.events, today, 5, config.workday, now),
+    todayFit: hasCalendar && !offToday && inWorkday ? { leftMinutes: cap.focusMinutes, nextWorkday: nextWorkday(store.events, today, config.workday) } : null,
+    isDayOff: dayOff,
   });
   const rankedById = new Map(ranked.map(r => [r.item.id, r]));
   const eventsById = new Map(store.events.map(e => [e.id, e]));
@@ -40,8 +54,16 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
   const dueTodayMinutes = actionable
     .filter(r => r.daysUntilDue !== null && r.daysUntilDue <= 0)
     .reduce((s, r) => s + (r.item.estimatedMinutes ?? 0), 0);
-  const allocation = hasCalendar ? Math.round(((cap.meetingMinutes + dueTodayMinutes) / cap.workdayMinutes) * 100) : 0;
-  const capacityStatus = !hasCalendar ? 'Unknown' : allocation > 100 ? 'Overloaded' : allocation > 85 ? 'Tight' : 'Healthy';
+  // Allocation: estimated work due today against the focus time left today.
+  const working = hasCalendar && !offToday && inWorkday;
+  const allocation = !working ? 0
+    : cap.focusMinutes ? Math.round((dueTodayMinutes / cap.focusMinutes) * 100)
+    : dueTodayMinutes ? 100 : 0;
+  const capacityStatus = !hasCalendar ? 'Unknown'
+    : offToday ? 'Day off'
+    : !inWorkday ? 'Day done'
+    : dueTodayMinutes > cap.focusMinutes ? 'Overloaded'
+    : allocation > 85 ? 'Tight' : 'Healthy';
 
   const nowCount = attention.filter(a => a.level === 'now').length;
   const firstName = config.displayName ?? store.user.name.split(' ')[0];
@@ -50,7 +72,10 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
 
   const summaryParts = [
     top ? `Start with ${top.item.title}${projectName(top.item.projectId) ? ` for ${projectName(top.item.projectId)}` : ''}.` : 'Nothing is scheduled to need you today.',
-    hasCalendar ? `You have ${minutesLabel(cap.focusMinutes)} of open focus time and ${minutesLabel(cap.meetingMinutes)} of meetings.` : 'Connect a calendar to see focus time.',
+    !hasCalendar ? 'Connect a calendar to see focus time.'
+      : offToday ? 'You are not working today.'
+      : !inWorkday ? 'Your workday is over.'
+      : `You have ${cap.focusMinutes ? `${minutesLabel(cap.focusMinutes)} of` : 'no'} focus time left today${cap.meetingMinutes ? `, and ${minutesLabel(cap.meetingMinutes)} of meetings on the calendar` : ''}.`,
     nowCount ? `${nowCount} item${nowCount === 1 ? ' needs' : 's need'} a decision today.` : 'Nothing needs to interrupt you.',
   ];
 
@@ -84,6 +109,7 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
       title: r.item.title,
       source: `${SOURCE_LABEL[r.item.source.type] ?? r.item.source.type} · ${dueLabel(r.item.dueAt, today)}`,
       sourceUrl: r.item.source.url,
+      todoId: r.item.source.type === 'manual' ? r.item.source.id : undefined,
       estimate: minutesLabel(r.item.estimatedMinutes),
       projectId: r.item.projectId && projectsById.has(r.item.projectId) ? r.item.projectId : null,
       status: r.item.status,
@@ -93,6 +119,8 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
     goals: memory.goals,
     knowledge: memory.knowledge,
     review: memory.review ?? { period: `${now.getFullYear()} · year to date`, themes: [], narrative: 'No evidence retained yet. Evidence collects here as work closes.' },
+    todos: todoViews(extras.todos, today, now),
+    continuity: extras.continuity,
   });
 }
 
@@ -105,6 +133,7 @@ function toFocus(r: RankedItem, today: string, now: Date): Focus {
     projectId: item.projectId ?? '',
     threadId: item.threadId,
     sourceUrl: item.source.url,
+    todoId: item.source.type === 'manual' ? item.source.id : undefined,
     title: item.title,
     description: item.group ? `In ${item.group}.` : '',
     reason: item.dueAt ? `Due ${due.toLowerCase().startsWith('to') ? due.toLowerCase() : due}.`
@@ -115,12 +144,25 @@ function toFocus(r: RankedItem, today: string, now: Date): Focus {
     status: item.status === 'in_progress' ? 'In progress' : 'Not started',
     blockers: item.blockedBy,
     nextAction: item.nextAction ?? (item.status === 'in_progress' ? 'Continue where you left off.' : 'Start the task.'),
-    continuity: {
-      lastActive: relativeActivity(item.updatedAt, now),
-      lastAction: `Last updated in ${source}.`,
-      restart: `Open the task in ${source}${item.group ? `, under ${item.group}` : ''}.`,
-    },
+    continuity: item.source.type === 'manual'
+      ? { lastActive: relativeActivity(item.updatedAt, now), lastAction: 'Added to your to-dos.', restart: 'Pick it up from your to-do list.' }
+      : {
+        lastActive: relativeActivity(item.updatedAt, now),
+        lastAction: `Last updated in ${source}.`,
+        restart: `Open the task in ${source}${item.group ? `, under ${item.group}` : ''}.`,
+      },
   };
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Open to-dos by due date, then those done in the last 7 days, newest first. */
+function todoViews(todos: Todo[], today: string, now: Date) {
+  const weekAgo = now.getTime() - 7 * 86_400_000;
+  const open = todos.filter(t => t.status === 'open').sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999') || a.createdAt.localeCompare(b.createdAt));
+  const done = todos.filter(t => t.status === 'done' && t.completedAt && Date.parse(t.completedAt) >= weekAgo).sort((a, b) => b.completedAt!.localeCompare(a.completedAt!));
+  return [...open, ...done].map(t => ({
+    id: t.id, title: t.title, projectId: t.projectId, dueAt: t.dueAt, due: dueLabel(t.dueAt, today),
+    estimatedMinutes: t.estimatedMinutes, status: t.status, completedAt: t.completedAt,
+  }));
+}

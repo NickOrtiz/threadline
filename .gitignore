@@ -8,3 +8,4 @@ node_modules/
 threadline.config.json
 memory/threadline-memory.json
 data/
+memory/todos.json

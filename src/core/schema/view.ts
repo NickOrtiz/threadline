@@ -36,6 +36,8 @@ export const Focus = z.object({
   projectId: z.string(),
   threadId: z.string().nullable(),
   sourceUrl: z.string().nullable().optional(),
+  /** Set when the focus is one of your own to-dos, so the UI can complete it. */
+  todoId: z.string().optional(),
   title: z.string(),
   description: z.string(),
   reason: z.string(),
@@ -59,6 +61,7 @@ export const NextUpItem = z.object({
   title: z.string(),
   source: z.string(),
   sourceUrl: z.string().nullable().optional(),
+  todoId: z.string().optional(),
   estimate: z.string(),
   projectId: z.string().nullable(),
   status: z.string(),
@@ -137,6 +140,33 @@ export const ReviewView = z.object({
   narrative: z.string(),
 });
 
+export const TodoView = z.object({
+  id: z.string(),
+  title: z.string(),
+  projectId: z.string().nullable(),
+  dueAt: z.string().nullable(),
+  due: z.string(),
+  estimatedMinutes: z.number().nullable(),
+  status: z.enum(['open', 'done']),
+  completedAt: z.string().nullable(),
+});
+
+export const ContinuityView = z.object({
+  /** When you left, as an ISO time. */
+  since: z.string(),
+  /** "Friday 5:10 PM". */
+  sinceLabel: z.string(),
+  /** "3 days". */
+  awayLabel: z.string(),
+  changes: z.array(z.object({
+    id: z.string(),
+    projectId: z.string().nullable(),
+    kind: z.string(),
+    text: z.string(),
+    url: z.string().nullable(),
+  })),
+});
+
 export const ThreadlineView = z.object({
   meta: z.object({
     workspace: z.object({ id: z.string(), name: z.string(), mode: z.string() }),
@@ -172,6 +202,10 @@ export const ThreadlineView = z.object({
   goals: z.array(GoalView),
   knowledge: z.array(KnowledgeView),
   review: ReviewView,
+  /** Your own to-dos, open and recently done. Absent in older fixtures. */
+  todos: z.array(TodoView).optional(),
+  /** "While you were away". Present only after a meaningful gap. */
+  continuity: ContinuityView.nullable().optional(),
 });
 export type ThreadlineView = z.infer<typeof ThreadlineView>;
 export type AttentionItem = z.infer<typeof AttentionItem>;

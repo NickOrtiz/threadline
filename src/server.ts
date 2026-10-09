@@ -15,9 +15,15 @@ import { readFile } from 'node:fs/promises';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { extname, join, resolve } from 'node:path';
 import { loadConfig } from './core/config.ts';
+import { loadTodos, saveTodos, Todo, TodoInput, TodoPatch } from './storage/todos.ts';
+import { loadActivity, recordSeen, saveActivity } from './storage/history.ts';
+import { localIso } from './core/time.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const config = await loadConfig(join(ROOT, 'threadline.config.json'));
+// Storage modules use paths relative to the project folder.
+process.chdir(ROOT);
+const config = await loadConfig('threadline.config.json');
+if (config.timezone) process.env.TZ = config.timezone;
 const { syncIntervalMinutes } = config.server;
 const port = Number(process.env.PORT) || config.server.port;
 const autoSync = !process.argv.includes('--no-sync');
@@ -39,36 +45,160 @@ const status: SyncStatus = { autoSync, intervalMinutes: syncIntervalMinutes, run
 const listeners = new Set<ServerResponse>();
 let child: ChildProcess | null = null;
 
-function broadcast() {
-  const message = `event: status\ndata: ${JSON.stringify(status)}\n\n`;
+function broadcast(event = 'status', data: unknown = status) {
+  const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const res of listeners) res.write(message);
 }
 
+// One job at a time. A sync fetches from every source; a rebuild only
+// recomputes the view from the last sync plus your to-dos and activity.
+let jobRunning = false;
+let pendingSync: string | null = null;
+let pendingRebuild = false;
+
 function runSync(reason: string) {
   if (status.running) return;
+  if (jobRunning) { pendingSync = reason; return; }
+  runJob('sync', reason);
+}
+
+function requestRebuild() {
+  if (jobRunning) { pendingRebuild = true; return; }
+  runJob('rebuild', 'local change');
+}
+
+function runJob(kind: 'sync' | 'rebuild', reason: string) {
+  jobRunning = true;
   const startedAt = new Date();
-  status.running = true;
-  broadcast();
-  log(`sync started (${reason})`);
+  if (kind === 'sync') {
+    status.running = true;
+    broadcast();
+    log(`sync started (${reason})`);
+  }
 
   let output = '';
-  child = spawn(process.execPath, ['--env-file-if-exists=.env', 'src/sync.ts'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+  const args = ['--env-file-if-exists=.env', 'src/sync.ts', ...(kind === 'rebuild' ? ['--rebuild'] : [])];
+  child = spawn(process.execPath, args, { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout?.on('data', chunk => { output += chunk; });
   child.stderr?.on('data', chunk => { output += chunk; });
   child.on('close', code => {
     child = null;
+    jobRunning = false;
     const lines = output.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(l => l && !l.startsWith('.env not found'));
-    status.running = false;
-    status.lastRun = {
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
-      ok: code === 0,
-      summary: lines.filter(l => /^[✓✗]/.test(l)).join(' · ') || lines.at(-1) || `exit code ${code}`,
-    };
-    status.nextRunAt = autoSync ? new Date(Date.now() + syncIntervalMinutes * 60_000).toISOString() : null;
-    broadcast();
-    log(`sync ${code === 0 ? 'finished' : 'failed'}: ${status.lastRun.summary}`);
+    if (kind === 'sync') {
+      status.running = false;
+      status.lastRun = {
+        startedAt: startedAt.toISOString(),
+        finishedAt: new Date().toISOString(),
+        ok: code === 0,
+        summary: lines.filter(l => /^[✓✗]/.test(l)).join(' · ') || lines.at(-1) || `exit code ${code}`,
+      };
+      status.nextRunAt = autoSync ? new Date(Date.now() + syncIntervalMinutes * 60_000).toISOString() : null;
+      broadcast();
+      log(`sync ${code === 0 ? 'finished' : 'failed'}: ${status.lastRun.summary}`);
+    } else if (code !== 0) {
+      log(`rebuild failed: ${lines.at(-1) ?? `exit code ${code}`}`);
+    }
+    // data/state.json changed: open pages reload it.
+    if (code === 0) broadcast('state', { at: new Date().toISOString() });
+
+    if (pendingSync) { const r = pendingSync; pendingSync = null; runJob('sync', r); }
+    else if (pendingRebuild) { pendingRebuild = false; runJob('rebuild', 'local change'); }
   });
+}
+
+// ── To-dos and activity ─────────────────────────────────────────────────
+
+/** Serializes writes to memory/todos.json. */
+let todoWrites: Promise<unknown> = Promise.resolve();
+function withTodos<T>(fn: (todos: Todo[]) => Promise<T> | T): Promise<T> {
+  const next = todoWrites.then(async () => {
+    const todos = await loadTodos();
+    const result = await fn(todos);
+    await saveTodos(todos);
+    return result;
+  });
+  todoWrites = next.catch(() => {});
+  return next;
+}
+
+class HttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) { super(message); this.status = status; }
+}
+
+/** JSON bodies only, and only from this page. Blocks cross-site form posts. */
+async function readJson(req: IncomingMessage): Promise<unknown> {
+  const origin = req.headers.origin;
+  if (origin && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) throw new HttpError(403, 'Forbidden origin');
+  if (!(req.headers['content-type'] ?? '').startsWith('application/json')) throw new HttpError(415, 'Send JSON');
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 10_000) throw new HttpError(413, 'Too large');
+  }
+  try { return body ? JSON.parse(body) : {}; } catch { throw new HttpError(400, 'Invalid JSON'); }
+}
+
+function sendJson(res: ServerResponse, code: number, data: unknown) {
+  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(data));
+}
+
+async function handleApi(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
+  const todoMatch = path.match(/^\/api\/todos\/([a-z0-9-]+)$/);
+
+  if (path === '/api/todos' && req.method === 'GET') {
+    sendJson(res, 200, { todos: await loadTodos() });
+    return true;
+  }
+  if (path === '/api/todos' && req.method === 'POST') {
+    const input = TodoInput.safeParse(await readJson(req));
+    if (!input.success) throw new HttpError(400, input.error.issues[0]?.message ?? 'Invalid to-do');
+    const stamp = localIso(new Date());
+    const todo = await withTodos(todos => {
+      const created = Todo.parse({ ...input.data, id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, createdAt: stamp, updatedAt: stamp });
+      todos.push(created);
+      return created;
+    });
+    requestRebuild();
+    sendJson(res, 201, todo);
+    return true;
+  }
+  if (todoMatch && (req.method === 'PATCH' || req.method === 'DELETE')) {
+    const id = todoMatch[1];
+    const patch = req.method === 'PATCH' ? TodoPatch.safeParse(await readJson(req)) : null;
+    if (patch && !patch.success) throw new HttpError(400, patch.error.issues[0]?.message ?? 'Invalid change');
+    if (!patch) await readJson(req).catch(() => {}); // DELETE needs no body, but keep the origin check
+    const result = await withTodos(todos => {
+      const index = todos.findIndex(t => t.id === id);
+      if (index < 0) return null;
+      if (!patch) return todos.splice(index, 1)[0];
+      const stamp = localIso(new Date());
+      const t = todos[index];
+      const next = { ...t, ...patch.data, updatedAt: stamp };
+      if (patch.data.status === 'done' && t.status !== 'done') next.completedAt = stamp;
+      if (patch.data.status === 'open') next.completedAt = null;
+      todos[index] = Todo.parse(next);
+      return todos[index];
+    });
+    if (!result) throw new HttpError(404, 'No such to-do');
+    requestRebuild();
+    sendJson(res, 200, result);
+    return true;
+  }
+  if (path === '/api/seen' && req.method === 'POST') {
+    const body = (await readJson(req)) as { acknowledge?: boolean };
+    const activity = await loadActivity();
+    const now = new Date();
+    const newSession = recordSeen(activity, now);
+    if (body.acknowledge) activity.acknowledgedAt = now.toISOString();
+    await saveActivity(activity);
+    // A new session may need "while you were away"; dismissing hides it.
+    if (newSession || body.acknowledge) requestRebuild();
+    sendJson(res, 200, { newSession });
+    return true;
+  }
+  return false;
 }
 
 async function serveFile(path: string, res: ServerResponse) {
@@ -98,6 +228,18 @@ const server = createServer(async (req, res) => {
   if (path === '/api/sync' && req.method === 'POST') {
     runSync('requested from the page');
     res.writeHead(202, { 'Content-Type': 'application/json' }).end(JSON.stringify(status));
+    return;
+  }
+  if (path.startsWith('/api/') && path !== '/api/events' && path !== '/api/sync') {
+    try {
+      if (await handleApi(req, res, path)) return;
+    } catch (err) {
+      const code = err instanceof HttpError ? err.status : 500;
+      if (code === 500) log(`error on ${path}: ${(err as Error).message}`);
+      sendJson(res, code, { error: (err as Error).message });
+      return;
+    }
+    sendJson(res, 404, { error: 'Not found' });
     return;
   }
   if (path === '/api/events') {

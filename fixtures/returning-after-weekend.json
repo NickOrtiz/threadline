@@ -1,0 +1,684 @@
+{
+  "meta": {
+    "workspace": {
+      "id": "work",
+      "name": "Acme Studio",
+      "mode": "Work"
+    },
+    "user": {
+      "id": "alex",
+      "name": "Alex",
+      "initials": "AL"
+    },
+    "generatedAt": "2026-10-08T09:45:00-06:00",
+    "dataMode": "fixture"
+  },
+  "daily": {
+    "date": "Monday, October 12",
+    "headline": "Good morning, Alex.",
+    "subhead": "Here is the plan. Everything else can wait.",
+    "summary": "Start with the two PR comments on Northwind. A lot moved over the weekend, but only one item needs a decision before noon.",
+    "capacity": {
+      "focusHours": 3.25,
+      "meetingsHours": 2.5,
+      "allocation": 72,
+      "status": "Healthy"
+    }
+  },
+  "focus": {
+    "id": "task-nav-behavior",
+    "projectId": "northwind",
+    "threadId": "thread-navigation",
+    "title": "Finalize mobile navigation behavior",
+    "description": "Close the remaining interaction decisions and leave the navigation implementation ready for review.",
+    "reason": "Unblocks engineering review and protects Friday's handoff.",
+    "effort": "45 min",
+    "status": "In progress",
+    "blockers": [],
+    "nextAction": "Verify keyboard behavior, then update the implementation notes.",
+    "continuity": {
+      "lastActive": "Yesterday \u00b7 4:18 PM",
+      "lastAction": "Completed responsive submenu states and documented breakpoint behavior.",
+      "openQuestions": [
+        "Should focus return to the parent trigger after Escape?"
+      ],
+      "restart": "Open PR #184 beside the interaction notes; keyboard behavior is the only unresolved piece."
+    }
+  },
+  "attention": [
+    {
+      "id": "attn-env",
+      "level": "now",
+      "source": "Slack",
+      "sourceRef": "#northwind-setup",
+      "projectId": "northwind",
+      "title": "Environment choice needs confirmation",
+      "detail": "Dana asked whether implementation should continue in the isolated environment.",
+      "why": "A response today prevents duplicated setup work.",
+      "due": "Today \u00b7 11:30 AM",
+      "action": "Reply with environment decision",
+      "estimatedEffort": "5 min",
+      "status": "Needs decision"
+    },
+    {
+      "id": "attn-pr184",
+      "level": "next",
+      "source": "GitHub",
+      "sourceRef": "PR #184",
+      "projectId": "northwind",
+      "title": "Review navigation refactor",
+      "detail": "Two review comments were added after your last pass.",
+      "why": "Can be resolved before the 2 PM project sync.",
+      "due": "Today \u00b7 noon",
+      "action": "Resolve 2 review comments",
+      "estimatedEffort": "20 min",
+      "status": "Ready"
+    },
+    {
+      "id": "attn-content",
+      "level": "watch",
+      "source": "Teamwork",
+      "sourceRef": "Homepage content",
+      "projectId": "juniper",
+      "title": "Homepage content approval is still pending",
+      "detail": "The content review has not moved since Tuesday.",
+      "why": "No action yet, but it becomes a schedule risk tomorrow.",
+      "due": "Watch until Friday",
+      "action": "Escalate if still pending Friday morning",
+      "estimatedEffort": "\u2014",
+      "status": "Watching"
+    },
+    {
+      "id": "attn-interview",
+      "level": "later",
+      "source": "Email",
+      "sourceRef": "People Ops",
+      "projectId": null,
+      "title": "Interview scheduling reply",
+      "detail": "A scheduling thread has a new response.",
+      "why": "Important, but it does not need to break the current focus block.",
+      "due": "Today",
+      "action": "Read and respond after deep work",
+      "estimatedEffort": "10 min",
+      "status": "Unread"
+    }
+  ],
+  "schedule": [
+    {
+      "id": "evt-focus",
+      "time": "9:00\u201310:30",
+      "title": "Deep work",
+      "meta": "Northwind \u00b7 navigation",
+      "kind": "focus"
+    },
+    {
+      "id": "evt-standup",
+      "time": "10:30\u201311:00",
+      "title": "Design standup",
+      "meta": "Acme Studio",
+      "kind": "meeting"
+    },
+    {
+      "id": "evt-open",
+      "time": "11:00\u201312:00",
+      "title": "Open focus window",
+      "meta": "Best window for PR review",
+      "kind": "open"
+    },
+    {
+      "id": "evt-sync",
+      "time": "2:00\u20133:00",
+      "title": "Northwind sync",
+      "meta": "Product + Design",
+      "kind": "meeting"
+    },
+    {
+      "id": "evt-1on1",
+      "time": "4:00\u20134:30",
+      "title": "1:1 with Taylor",
+      "meta": "Weekly check-in",
+      "kind": "meeting"
+    }
+  ],
+  "nextUp": [
+    {
+      "id": "task-pr184",
+      "title": "Resolve PR #184 review comments",
+      "source": "GitHub",
+      "estimate": "20 min",
+      "projectId": "northwind",
+      "status": "Ready"
+    },
+    {
+      "id": "task-sync",
+      "title": "Prepare three talking points for project sync",
+      "source": "Calendar",
+      "estimate": "15 min",
+      "projectId": "northwind",
+      "status": "Ready"
+    },
+    {
+      "id": "todo-demo-1",
+      "title": "Update local Node and reinstall packages",
+      "source": "To-do \u00b7 Today",
+      "estimate": "30 min",
+      "projectId": null,
+      "status": "open",
+      "todoId": "demo-1"
+    },
+    {
+      "id": "task-interview",
+      "title": "Respond to interview scheduling",
+      "source": "Email",
+      "estimate": "10 min",
+      "projectId": null,
+      "status": "Later"
+    },
+    {
+      "id": "task-content",
+      "title": "Check homepage content approval",
+      "source": "Teamwork",
+      "estimate": "5 min",
+      "projectId": "juniper",
+      "status": "Watch"
+    }
+  ],
+  "projects": [
+    {
+      "id": "northwind",
+      "name": "Northwind",
+      "description": "WordPress platform rebuild",
+      "status": "On track",
+      "progress": 68,
+      "due": "May 17",
+      "role": "Front-end architecture + implementation leadership",
+      "objective": "Deliver a reusable, accessible FSE system with predictable authoring patterns.",
+      "nextMilestone": "Navigation engineering handoff",
+      "health": {
+        "schedule": "Healthy",
+        "scope": "Healthy",
+        "dependencies": "Watch",
+        "capacity": "Healthy"
+      },
+      "goals": [
+        "goal-architecture",
+        "goal-accessibility"
+      ],
+      "accomplishments": [
+        "Established the FSE architecture and reusable block conventions.",
+        "Reduced navigation ambiguity into an implementation-ready interaction model."
+      ],
+      "decisions": [
+        {
+          "id": "dec-nav",
+          "title": "Use disclosure behavior for nested mobile navigation",
+          "date": "Oct 7",
+          "rationale": "More predictable keyboard and focus behavior than a custom drawer-only pattern."
+        },
+        {
+          "id": "dec-env",
+          "title": "Keep active implementation isolated from the production-like environment",
+          "date": "Oct 6",
+          "rationale": "Avoids collision with parallel content and QA work."
+        }
+      ],
+      "learnings": [
+        {
+          "id": "learn-a11y",
+          "type": "Approach",
+          "title": "Resolve interaction semantics before visual QA",
+          "detail": "Keyboard and focus decisions are cheaper to settle before visual polish begins.",
+          "reusable": true
+        },
+        {
+          "id": "learn-handoff",
+          "type": "Process",
+          "title": "Handoff notes should name the unresolved decision",
+          "detail": "Explicit open questions make context recovery dramatically faster after a gap.",
+          "reusable": true
+        }
+      ],
+      "weekly": {
+        "period": "Oct 5\u20139",
+        "summary": "Navigation moved from exploration into implementation-ready behavior. Remaining risk is mostly coordination, not technical uncertainty.",
+        "wins": [
+          "Closed responsive navigation states",
+          "Reduced open interaction decisions to one",
+          "Prepared PR for focused review"
+        ],
+        "risks": [
+          "Environment confirmation still needs an owner response"
+        ],
+        "next": [
+          "Finish keyboard behavior",
+          "Resolve review comments",
+          "Prepare homepage implementation sequence"
+        ]
+      }
+    },
+    {
+      "id": "juniper",
+      "name": "Juniper",
+      "description": "Brand + marketing site",
+      "status": "Watch",
+      "progress": 42,
+      "due": "May 3",
+      "role": "Environment strategy + implementation support",
+      "objective": "Create a safe implementation path without disrupting the existing managed environment.",
+      "nextMilestone": "Content approval",
+      "health": {
+        "schedule": "Watch",
+        "scope": "Healthy",
+        "dependencies": "At risk",
+        "capacity": "Healthy"
+      },
+      "goals": [
+        "goal-architecture"
+      ],
+      "accomplishments": [
+        "Proposed a separate environment strategy that reduces collision risk."
+      ],
+      "decisions": [],
+      "learnings": [
+        {
+          "id": "learn-env",
+          "type": "Avoid next time",
+          "title": "Confirm environment ownership before implementation starts",
+          "detail": "Ambiguous environment ownership creates avoidable coordination cost.",
+          "reusable": true
+        }
+      ],
+      "weekly": {
+        "period": "Oct 5\u20139",
+        "summary": "Implementation is waiting on content and environment confirmation.",
+        "wins": [
+          "Environment path documented"
+        ],
+        "risks": [
+          "Homepage approval stalled"
+        ],
+        "next": [
+          "Confirm ownership",
+          "Begin implementation after approval"
+        ]
+      }
+    },
+    {
+      "id": "threadline",
+      "name": "Threadline",
+      "description": "Personal work operating system",
+      "status": "Exploring",
+      "progress": 24,
+      "due": "Open",
+      "role": "Product design + engineering",
+      "objective": "Reduce coordination tax by turning noisy work systems into a calm, context-aware execution layer.",
+      "nextMilestone": "Integrations-ready prototype",
+      "health": {
+        "schedule": "Healthy",
+        "scope": "Watch",
+        "dependencies": "Healthy",
+        "capacity": "Watch"
+      },
+      "goals": [
+        "goal-systems"
+      ],
+      "accomplishments": [
+        "Defined the attention firewall, continuity model, and graduated memory system."
+      ],
+      "decisions": [
+        {
+          "id": "dec-schema",
+          "title": "UI consumes Threadline-shaped data, never provider payloads",
+          "date": "Oct 8",
+          "rationale": "Keeps integrations replaceable and preserves a stable product contract."
+        }
+      ],
+      "learnings": [
+        {
+          "id": "learn-completion",
+          "type": "Product",
+          "title": "Completion is when work becomes knowledge",
+          "detail": "Task closure should promote useful evidence, decisions, and learnings rather than discard context.",
+          "reusable": true
+        }
+      ],
+      "weekly": {
+        "period": "Oct 5\u20139",
+        "summary": "Moved from dashboard concept toward a work OS with memory and evidence.",
+        "wins": [
+          "Defined core product loop",
+          "Established continuity snapshots",
+          "Created calm dashboard direction"
+        ],
+        "risks": [
+          "Scope can expand faster than integration architecture"
+        ],
+        "next": [
+          "Prototype internal pages",
+          "Define schema v0.1",
+          "Connect first source"
+        ]
+      }
+    }
+  ],
+  "threads": [
+    {
+      "id": "thread-navigation",
+      "projectId": "northwind",
+      "title": "Navigation behavior",
+      "status": "Active",
+      "objective": "Finalize responsive and keyboard interaction behavior for the new navigation.",
+      "nextAction": "Verify Escape/focus-return behavior.",
+      "updated": "Yesterday \u00b7 4:18 PM",
+      "notes": [
+        {
+          "id": "note-1",
+          "at": "Oct 7 \u00b7 3:05 PM",
+          "body": "Mobile submenu states are complete. Remaining concern is focus return after Escape."
+        },
+        {
+          "id": "note-2",
+          "at": "Oct 7 \u00b7 4:18 PM",
+          "body": "Breakpoint behavior documented in implementation notes. PR #184 is ready for focused review."
+        }
+      ],
+      "openQuestions": [
+        "Should Escape return focus to the parent trigger?"
+      ],
+      "waitingOn": [
+        "Dana \u00b7 environment confirmation"
+      ],
+      "linked": [
+        "PR #184",
+        "Figma \u00b7 navigation prototype",
+        "WCAG interaction notes"
+      ],
+      "continuity": {
+        "lastActive": "Yesterday \u00b7 4:18 PM",
+        "whereYouWere": "Responsive behavior is closed. Keyboard focus return is the only unresolved interaction decision.",
+        "changedSince": [
+          "Two comments added to PR #184",
+          "Dana asked for environment confirmation"
+        ],
+        "restart": "Open the interaction notes beside PR #184 and resolve focus return first."
+      },
+      "candidateLearnings": [
+        "Interaction semantics should be closed before visual QA.",
+        "Explicit open questions improve context recovery after a gap."
+      ]
+    },
+    {
+      "id": "thread-homepage",
+      "projectId": "juniper",
+      "title": "Homepage content + environment",
+      "status": "Waiting",
+      "objective": "Get the homepage into an implementation-ready state without colliding with the existing environment.",
+      "nextAction": "Wait for approval; escalate Friday if unchanged.",
+      "updated": "Tuesday",
+      "notes": [
+        {
+          "id": "note-3",
+          "at": "Oct 6",
+          "body": "Separate environment is still the safest route while ownership remains split."
+        }
+      ],
+      "openQuestions": [
+        "Who owns final environment approval?"
+      ],
+      "waitingOn": [
+        "Content approval",
+        "Environment owner"
+      ],
+      "linked": [
+        "Teamwork \u00b7 homepage content",
+        "Environment plan"
+      ],
+      "continuity": {
+        "lastActive": "Tuesday \u00b7 2:10 PM",
+        "whereYouWere": "Implementation is intentionally paused.",
+        "changedSince": [
+          "No content approval yet"
+        ],
+        "restart": "Check content status before doing any implementation work."
+      },
+      "candidateLearnings": [
+        "Confirm environment ownership before development begins."
+      ]
+    }
+  ],
+  "goals": [
+    {
+      "id": "goal-architecture",
+      "title": "Increase ownership of technical architecture",
+      "type": "SMART",
+      "status": "On track",
+      "progress": 72,
+      "target": "Lead architecture or discovery on 3 meaningful project areas by Dec 31.",
+      "measure": "3 qualifying leadership examples",
+      "current": "2 complete \u00b7 1 emerging",
+      "due": "Dec 31, 2026",
+      "linkedProjects": [
+        "northwind",
+        "juniper"
+      ],
+      "evidence": [
+        {
+          "title": "Northwind architecture",
+          "detail": "Defined reusable FSE patterns and implementation structure.",
+          "strength": "Strong"
+        },
+        {
+          "title": "Juniper environment strategy",
+          "detail": "Turned ambiguous ownership into an actionable implementation path.",
+          "strength": "Medium"
+        }
+      ],
+      "risk": "A third qualifying architecture opportunity is not yet clearly scheduled."
+    },
+    {
+      "id": "goal-accessibility",
+      "title": "Make accessibility part of implementation design",
+      "type": "SMART",
+      "status": "On track",
+      "progress": 81,
+      "target": "Apply WCAG 2.2 AA acceptance criteria during implementation, not only QA.",
+      "measure": "Documented criteria + evidence across active build work",
+      "current": "Navigation criteria documented and being validated",
+      "due": "Dec 31, 2026",
+      "linkedProjects": [
+        "northwind"
+      ],
+      "evidence": [
+        {
+          "title": "Navigation interaction model",
+          "detail": "Keyboard and focus behavior resolved as part of implementation design.",
+          "strength": "Strong"
+        }
+      ],
+      "risk": "Keep evidence attached to completed work so the goal does not become anecdotal."
+    },
+    {
+      "id": "goal-systems",
+      "title": "Reduce coordination tax with better systems",
+      "type": "Exploratory",
+      "status": "Building",
+      "progress": 36,
+      "target": "Create a usable operating layer that reduces mental bookkeeping across work systems.",
+      "measure": "Prototype + one live integration + weekly use",
+      "current": "Product model defined; prototype in progress",
+      "due": "Open",
+      "linkedProjects": [
+        "threadline"
+      ],
+      "evidence": [
+        {
+          "title": "Threadline product model",
+          "detail": "Attention firewall, continuity, memory, evidence, and goal alignment defined.",
+          "strength": "Strong"
+        }
+      ],
+      "risk": "Protect the core workflow from integration-driven scope creep."
+    }
+  ],
+  "knowledge": [
+    {
+      "id": "k1",
+      "kind": "Learning",
+      "title": "Resolve interaction semantics before visual QA",
+      "body": "Keyboard and focus decisions are cheaper to settle before visual polish begins.",
+      "projectId": "northwind",
+      "created": "Oct 7",
+      "reusable": true,
+      "tags": [
+        "accessibility",
+        "process"
+      ]
+    },
+    {
+      "id": "k2",
+      "kind": "Accomplishment",
+      "title": "Reduced navigation ambiguity to one open decision",
+      "body": "Converted a broad responsive-navigation problem into a reviewable implementation path with one explicit unresolved behavior.",
+      "projectId": "northwind",
+      "created": "Oct 7",
+      "reusable": false,
+      "tags": [
+        "architecture",
+        "leadership"
+      ]
+    },
+    {
+      "id": "k3",
+      "kind": "Learning",
+      "title": "Confirm environment ownership before implementation",
+      "body": "When multiple people or systems share an environment, ownership should be explicit before development begins.",
+      "projectId": "juniper",
+      "created": "Oct 6",
+      "reusable": true,
+      "tags": [
+        "coordination",
+        "risk"
+      ]
+    },
+    {
+      "id": "k4",
+      "kind": "Product",
+      "title": "Completion is when work becomes knowledge",
+      "body": "Closing work should create durable evidence, decisions, and learnings instead of simply hiding the task.",
+      "projectId": "threadline",
+      "created": "Oct 8",
+      "reusable": true,
+      "tags": [
+        "threadline",
+        "product"
+      ]
+    }
+  ],
+  "review": {
+    "period": "2026 \u00b7 year to date",
+    "themes": [
+      {
+        "label": "Architecture",
+        "count": 12,
+        "note": "Recurring ownership of ambiguous technical areas"
+      },
+      {
+        "label": "Team enablement",
+        "count": 8,
+        "note": "Ramp-up, documentation, and unblock work"
+      },
+      {
+        "label": "Delivery",
+        "count": 19,
+        "note": "Milestones closed or materially advanced"
+      },
+      {
+        "label": "Problems prevented",
+        "count": 6,
+        "note": "Risks avoided through early technical decisions"
+      }
+    ],
+    "narrative": "The strongest pattern is turning ambiguous implementation areas into systems other people can execute against. Evidence clusters around architecture, accessibility, and coordination reduction rather than isolated ticket delivery."
+  },
+  "todos": [
+    {
+      "id": "demo-1",
+      "title": "Update local Node and reinstall packages",
+      "projectId": null,
+      "dueAt": "2026-10-12",
+      "due": "Today",
+      "estimatedMinutes": 30,
+      "status": "open",
+      "completedAt": null
+    },
+    {
+      "id": "demo-2",
+      "title": "Rebuild the local Northwind database from the latest export",
+      "projectId": "northwind",
+      "dueAt": "2026-10-14",
+      "due": "Wed \u00b7 Oct 14",
+      "estimatedMinutes": 60,
+      "status": "open",
+      "completedAt": null
+    },
+    {
+      "id": "demo-3",
+      "title": "Rotate the expired staging API key",
+      "projectId": "juniper",
+      "dueAt": null,
+      "due": "No due date",
+      "estimatedMinutes": 15,
+      "status": "done",
+      "completedAt": "2026-10-09T16:20:00-04:00"
+    }
+  ],
+  "continuity": {
+    "since": "2026-10-09T17:10:00-04:00",
+    "sinceLabel": "Friday 5:10 PM",
+    "awayLabel": "3 days",
+    "changes": [
+      {
+        "id": "c1",
+        "projectId": "northwind",
+        "kind": "review",
+        "text": "Navigation refactor: changes requested",
+        "url": null
+      },
+      {
+        "id": "c2",
+        "projectId": "northwind",
+        "kind": "due_moved",
+        "text": "Due date moved: Homepage hero (Oct 14 \u2192 Oct 16)",
+        "url": null
+      },
+      {
+        "id": "c3",
+        "projectId": "northwind",
+        "kind": "updated",
+        "text": "3 other items were updated",
+        "url": null
+      },
+      {
+        "id": "c4",
+        "projectId": "juniper",
+        "kind": "completed",
+        "text": "Completed: Homepage content approval",
+        "url": null
+      },
+      {
+        "id": "c5",
+        "projectId": "juniper",
+        "kind": "added",
+        "text": "New: Implement approved homepage content",
+        "url": null
+      },
+      {
+        "id": "c6",
+        "projectId": null,
+        "kind": "meeting_added",
+        "text": "New on your calendar: Juniper kickoff \u00b7 Tue 10:00 AM",
+        "url": null
+      }
+    ]
+  }
+}

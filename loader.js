@@ -7,7 +7,7 @@
 // If live data is missing, it falls back to the normal-day fixture and
 // Settings says so.
 (async () => {
-  const FIXTURES = ['normal-day'];
+  const FIXTURES = ['normal-day', 'returning-after-weekend'];
   const urlFixture = new URLSearchParams(location.search).get('fixture');
   const saved = window.ThreadlinePrefs.read('threadline.dataSource', 'live');
 
@@ -43,24 +43,36 @@
     if (res.ok) window.THREADLINE_SYNC = await res.json();
   } catch {}
 
+  /** JSON requests to the local server. Throws with the server's message. */
+  window.threadlineApi = async (path, method = 'GET', body) => {
+    const res = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || `${res.status}`);
+    return json;
+  };
+
   window.startThreadline(data);
   if (window.THREADLINE_SYNC) listenForSyncs();
 
   function listenForSyncs() {
-    let lastFinished = window.THREADLINE_SYNC.lastRun?.finishedAt ?? null;
     const events = new EventSource('/api/events');
-    events.addEventListener('status', async e => {
-      const status = JSON.parse(e.data);
-      window.THREADLINE_SYNC = status;
-      const finished = status.lastRun?.finishedAt ?? null;
-      // Only live views take new data; a chosen fixture stays put.
-      if (finished && finished !== lastFinished && status.lastRun.ok && window.THREADLINE_SOURCE.mode === 'live' && window.THREADLINE_SOURCE.origin !== 'fallback') {
-        try { window.updateThreadline(await load('data/state.json')); } catch (err) { console.warn('Threadline: could not load new data.', err); }
-      } else if (finished && finished !== lastFinished && status.lastRun.ok && window.THREADLINE_SOURCE.origin === 'fallback') {
-        location.reload(); // The first live data just arrived.
-      }
-      lastFinished = finished;
+    // Sync status changed (started, finished, failed): refresh the labels.
+    events.addEventListener('status', e => {
+      window.THREADLINE_SYNC = JSON.parse(e.data);
       window.refreshThreadlineStatus?.();
     });
+    // data/state.json was rewritten by a sync or a local change.
+    events.addEventListener('state', async () => {
+      if (window.THREADLINE_SOURCE.origin === 'fallback') { location.reload(); return; } // first live data
+      if (window.THREADLINE_SOURCE.mode !== 'live') return; // a chosen fixture stays put
+      try { window.updateThreadline(await load('data/state.json')); } catch (err) { console.warn('Threadline: could not load new data.', err); }
+    });
+
+    // Tell the server you are here, so it can show "while you were away"
+    // after a gap. Only while the page is visible.
+    const seen = () => { if (document.visibilityState === 'visible') window.threadlineApi('/api/seen', 'POST', {}).catch(() => {}); };
+    seen();
+    setInterval(seen, 5 * 60_000);
+    document.addEventListener('visibilitychange', seen);
   }
 })();
