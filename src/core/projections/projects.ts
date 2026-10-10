@@ -18,7 +18,7 @@ export function deriveProjects(
 
   return projects
     .map(p => {
-      const mine = workItems.filter(w => w.projectId === p.id);
+      const mine = workItems.filter(w => w.mine && w.projectId === p.id);
       const done = mine.filter(w => w.status === 'done');
       const open = ranked.filter(r => r.item.projectId === p.id);
       const active = open.filter(r => !r.stale);

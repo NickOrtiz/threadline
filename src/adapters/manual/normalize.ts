@@ -21,6 +21,9 @@ export function normalizeTodo(todo: Todo, syncedAt: string): WorkItem {
     nextAction: null,
     blockedBy: [],
     codeReview: null,
+    stage: null,
+    needsResponse: false,
+    mine: true,
     updatedAt: todo.updatedAt,
     source: { type: 'manual', id: todo.id, url: null, syncedAt },
   };

@@ -37,7 +37,7 @@
     "blockers": [],
     "nextAction": "Verify keyboard behavior, then update the implementation notes.",
     "continuity": {
-      "lastActive": "Yesterday · 4:18 PM",
+      "lastActive": "Yesterday \u00b7 4:18 PM",
       "lastAction": "Completed responsive submenu states and documented breakpoint behavior.",
       "openQuestions": [
         "Should focus return to the parent trigger after Escape?"
@@ -55,7 +55,7 @@
       "title": "Environment choice needs confirmation",
       "detail": "Dana asked whether implementation should continue in the isolated environment.",
       "why": "A response today prevents duplicated setup work.",
-      "due": "Today · 11:30 AM",
+      "due": "Today \u00b7 11:30 AM",
       "action": "Reply with environment decision",
       "estimatedEffort": "5 min",
       "status": "Needs decision"
@@ -69,7 +69,7 @@
       "title": "Review navigation refactor",
       "detail": "Two review comments were added after your last pass.",
       "why": "Can be resolved before the 2 PM project sync.",
-      "due": "Today · noon",
+      "due": "Today \u00b7 noon",
       "action": "Resolve 2 review comments",
       "estimatedEffort": "20 min",
       "status": "Ready"
@@ -85,7 +85,7 @@
       "why": "No action yet, but it becomes a schedule risk tomorrow.",
       "due": "Watch until Friday",
       "action": "Escalate if still pending Friday morning",
-      "estimatedEffort": "—",
+      "estimatedEffort": "\u2014",
       "status": "Watching"
     },
     {
@@ -106,35 +106,35 @@
   "schedule": [
     {
       "id": "evt-focus",
-      "time": "9:00–10:30",
+      "time": "9:00\u201310:30",
       "title": "Deep work",
-      "meta": "Northwind · navigation",
+      "meta": "Northwind \u00b7 navigation",
       "kind": "focus"
     },
     {
       "id": "evt-standup",
-      "time": "10:30–11:00",
+      "time": "10:30\u201311:00",
       "title": "Design standup",
       "meta": "Acme Studio",
       "kind": "meeting"
     },
     {
       "id": "evt-open",
-      "time": "11:00–12:00",
+      "time": "11:00\u201312:00",
       "title": "Open focus window",
       "meta": "Best window for PR review",
       "kind": "open"
     },
     {
       "id": "evt-sync",
-      "time": "2:00–3:00",
+      "time": "2:00\u20133:00",
       "title": "Northwind sync",
       "meta": "Product + Design",
       "kind": "meeting"
     },
     {
       "id": "evt-1on1",
-      "time": "4:00–4:30",
+      "time": "4:00\u20134:30",
       "title": "1:1 with Taylor",
       "meta": "Weekly check-in",
       "kind": "meeting"
@@ -230,7 +230,7 @@
         }
       ],
       "weekly": {
-        "period": "Oct 5–9",
+        "period": "Oct 5\u20139",
         "summary": "Navigation moved from exploration into implementation-ready behavior. Remaining risk is mostly coordination, not technical uncertainty.",
         "wins": [
           "Closed responsive navigation states",
@@ -280,7 +280,7 @@
         }
       ],
       "weekly": {
-        "period": "Oct 5–9",
+        "period": "Oct 5\u20139",
         "summary": "Implementation is waiting on content and environment confirmation.",
         "wins": [
           "Environment path documented"
@@ -334,7 +334,7 @@
         }
       ],
       "weekly": {
-        "period": "Oct 5–9",
+        "period": "Oct 5\u20139",
         "summary": "Moved from dashboard concept toward a work OS with memory and evidence.",
         "wins": [
           "Defined core product loop",
@@ -360,16 +360,16 @@
       "status": "Active",
       "objective": "Finalize responsive and keyboard interaction behavior for the new navigation.",
       "nextAction": "Verify Escape/focus-return behavior.",
-      "updated": "Yesterday · 4:18 PM",
+      "updated": "Yesterday \u00b7 4:18 PM",
       "notes": [
         {
           "id": "note-1",
-          "at": "Oct 7 · 3:05 PM",
+          "at": "Oct 7 \u00b7 3:05 PM",
           "body": "Mobile submenu states are complete. Remaining concern is focus return after Escape."
         },
         {
           "id": "note-2",
-          "at": "Oct 7 · 4:18 PM",
+          "at": "Oct 7 \u00b7 4:18 PM",
           "body": "Breakpoint behavior documented in implementation notes. PR #184 is ready for focused review."
         }
       ],
@@ -377,15 +377,15 @@
         "Should Escape return focus to the parent trigger?"
       ],
       "waitingOn": [
-        "Dana · environment confirmation"
+        "Dana \u00b7 environment confirmation"
       ],
       "linked": [
         "PR #184",
-        "Figma · navigation prototype",
+        "Figma \u00b7 navigation prototype",
         "WCAG interaction notes"
       ],
       "continuity": {
-        "lastActive": "Yesterday · 4:18 PM",
+        "lastActive": "Yesterday \u00b7 4:18 PM",
         "whereYouWere": "Responsive behavior is closed. Keyboard focus return is the only unresolved interaction decision.",
         "changedSince": [
           "Two comments added to PR #184",
@@ -421,11 +421,11 @@
         "Environment owner"
       ],
       "linked": [
-        "Teamwork · homepage content",
+        "Teamwork \u00b7 homepage content",
         "Environment plan"
       ],
       "continuity": {
-        "lastActive": "Tuesday · 2:10 PM",
+        "lastActive": "Tuesday \u00b7 2:10 PM",
         "whereYouWere": "Implementation is intentionally paused.",
         "changedSince": [
           "No content approval yet"
@@ -446,7 +446,7 @@
       "progress": 72,
       "target": "Lead architecture or discovery on 3 meaningful project areas by Dec 31.",
       "measure": "3 qualifying leadership examples",
-      "current": "2 complete · 1 emerging",
+      "current": "2 complete \u00b7 1 emerging",
       "due": "Dec 31, 2026",
       "linkedProjects": [
         "northwind",
@@ -566,7 +566,7 @@
     }
   ],
   "review": {
-    "period": "2026 · year to date",
+    "period": "2026 \u00b7 year to date",
     "themes": [
       {
         "label": "Architecture",
@@ -590,5 +590,54 @@
       }
     ],
     "narrative": "The strongest pattern is turning ambiguous implementation areas into systems other people can execute against. Evidence clusters around architecture, accessibility, and coordination reduction rather than isolated ticket delivery."
-  }
+  },
+  "reports": [
+    {
+      "date": "2026-10-08",
+      "label": "Today",
+      "projects": [
+        {
+          "projectId": "northwind",
+          "name": "Northwind",
+          "lines": [
+            {
+              "workItemId": "task-nav-behavior",
+              "title": "Finalize mobile navigation behavior",
+              "detail": "In Review. Keyboard focus return settled; ready for a team check (PR #184)",
+              "url": null
+            },
+            {
+              "workItemId": "task-pr184",
+              "title": "Resolve PR #184 review comments",
+              "detail": "Done",
+              "url": null
+            }
+          ],
+          "next": [
+            "Prepare three talking points for project sync"
+          ],
+          "waiting": [
+            "Environment confirmation (Waiting)"
+          ],
+          "text": "*Northwind* \u00b7 Thursday, Oct 8\n\u2022 *Finalize mobile navigation behavior* \u2014 In Review. Keyboard focus return settled; ready for a team check (PR #184)\n\u2022 *Resolve PR #184 review comments* \u2014 Done\n_Next:_ Prepare three talking points for project sync\n_Waiting on others:_ Environment confirmation (Waiting)"
+        },
+        {
+          "projectId": "juniper",
+          "name": "Juniper",
+          "lines": [
+            {
+              "workItemId": "task-content",
+              "title": "Check homepage content approval",
+              "detail": "Waiting on Client. Nudged the content owner",
+              "url": null
+            }
+          ],
+          "next": [],
+          "waiting": [],
+          "text": "*Juniper* \u00b7 Thursday, Oct 8\n\u2022 *Check homepage content approval* \u2014 Waiting on Client. Nudged the content owner"
+        }
+      ],
+      "text": "*Status \u00b7 Thursday, Oct 8*\n\n*Northwind*\n\u2022 *Finalize mobile navigation behavior* \u2014 In Review. Keyboard focus return settled; ready for a team check (PR #184)\n\u2022 *Resolve PR #184 review comments* \u2014 Done\n_Next:_ Prepare three talking points for project sync\n_Waiting on others:_ Environment confirmation (Waiting)\n\n*Juniper*\n\u2022 *Check homepage content approval* \u2014 Waiting on Client. Nudged the content owner"
+    }
+  ]
 }

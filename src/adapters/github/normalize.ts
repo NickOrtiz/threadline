@@ -50,7 +50,7 @@ const NEXT_ACTION: Record<CodeReviewState['state'], string> = {
 function base(connection: CodeHost, url: string, id: string, syncedAt: string) {
   return {
     threadId: null, priority: null, parentId: null, startAt: null, completedAt: null,
-    estimatedMinutes: null, source: { type: 'github' as const, id: `${connection.host}/${id}`, url, syncedAt },
+    estimatedMinutes: null, stage: null, needsResponse: false, mine: true, source: { type: 'github' as const, id: `${connection.host}/${id}`, url, syncedAt },
   };
 }
 

@@ -26,6 +26,9 @@
         "id": "juniper",
         "name": "Juniper"
       }
+    },
+    "stageStatus": {
+      "Icebox": "blocked"
     }
   },
   "calendar": {

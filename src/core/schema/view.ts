@@ -167,6 +167,25 @@ export const ContinuityView = z.object({
   })),
 });
 
+const ReportLine = z.object({ workItemId: z.string().nullable(), title: z.string(), detail: z.string(), url: z.string().nullable() });
+
+export const DayReportView = z.object({
+  date: z.string(),
+  /** "Today", "Yesterday", or "Wednesday, Oct 7". */
+  label: z.string(),
+  projects: z.array(z.object({
+    projectId: z.string().nullable(),
+    name: z.string(),
+    lines: z.array(ReportLine),
+    next: z.array(z.string()),
+    waiting: z.array(z.string()),
+    /** Slack-formatted text for this project alone. */
+    text: z.string(),
+  })),
+  /** Slack-formatted text for every project that day. */
+  text: z.string(),
+});
+
 export const ThreadlineView = z.object({
   meta: z.object({
     workspace: z.object({ id: z.string(), name: z.string(), mode: z.string() }),
@@ -206,6 +225,8 @@ export const ThreadlineView = z.object({
   todos: z.array(TodoView).optional(),
   /** "While you were away". Present only after a meaningful gap. */
   continuity: ContinuityView.nullable().optional(),
+  /** Daily status reports, newest first. Absent in older fixtures. */
+  reports: z.array(DayReportView).optional(),
 });
 export type ThreadlineView = z.infer<typeof ThreadlineView>;
 export type AttentionItem = z.infer<typeof AttentionItem>;

@@ -75,6 +75,15 @@ export const WorkItem = z.object({
   nextAction: z.string().nullable(),
   blockedBy: z.array(z.string()),
   codeReview: CodeReviewState.nullable().default(null),
+  /** The board column or workflow stage, named as the source names it ("In Review"). */
+  stage: z.string().nullable().default(null),
+  /** The source handed this back to you for a response, such as a "Needs feedback" stage. */
+  needsResponse: z.boolean().default(false),
+  /**
+   * False for work you touched but that is no longer assigned to you, such
+   * as a task handed to reviewers. Reports use it; focus and capacity do not.
+   */
+  mine: z.boolean().default(true),
   updatedAt: IsoDateTime,
   source: SourceRef,
 });
@@ -164,6 +173,23 @@ export const Goal = z.object({
 });
 export type Goal = z.infer<typeof Goal>;
 
+/** Something you did in a source: a comment, an update, a completion. */
+export const Activity = z.object({
+  id: z.string(),
+  at: IsoDateTime,
+  projectId: z.string().nullable(),
+  /** The work item it concerns, when there is one. */
+  workItemId: z.string().nullable(),
+  kind: z.enum(['comment', 'updated', 'completed', 'reopened', 'created']),
+  /** The item's title, such as the task name. */
+  title: z.string(),
+  /** A short excerpt, such as the first line of a comment. */
+  text: z.string().nullable(),
+  url: z.string().nullable(),
+  source: SourceRef,
+});
+export type Activity = z.infer<typeof Activity>;
+
 /** Everything one sync run produced, before projection. */
 export const EntityStore = z.object({
   syncedAt: IsoDateTime,
@@ -171,6 +197,8 @@ export const EntityStore = z.object({
   projects: z.array(Project),
   workItems: z.array(WorkItem),
   events: z.array(Event),
+  /** Your own recent activity, for daily reports. Absent in older syncs. */
+  activities: z.array(Activity).default([]),
   /** Sources that failed or were skipped this run, so the UI can say so. */
   sourceStatus: z.array(z.object({ type: SourceType, ok: z.boolean(), message: z.string() })),
 });

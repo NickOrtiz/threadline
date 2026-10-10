@@ -7,7 +7,7 @@ import { formatShortDate } from '../time.ts';
 export interface Change {
   id: string;
   projectId: string | null;
-  kind: 'added' | 'completed' | 'removed' | 'due_moved' | 'review' | 'updated' | 'meeting_added' | 'meeting_moved' | 'meeting_cancelled';
+  kind: 'added' | 'completed' | 'removed' | 'due_moved' | 'review' | 'stage' | 'updated' | 'meeting_added' | 'meeting_moved' | 'meeting_cancelled';
   text: string;
   url: string | null;
 }
@@ -39,6 +39,11 @@ export function diffSnapshots(before: Snapshot, after: Snapshot, now: Date): Cha
       const from = was.dueAt ? formatShortDate(was.dueAt) : 'no date';
       const to = w.dueAt ? formatShortDate(w.dueAt) : 'no date';
       changes.push({ ...base, id: `due-${w.id}`, kind: 'due_moved', text: `Due date moved: ${w.title} (${from} → ${to})` });
+      noted = true;
+    }
+    // Older snapshots have no stage; only compare when both sides know it.
+    if (w.stage !== undefined && was.stage !== undefined && w.stage && w.stage !== was.stage && w.status !== 'done') {
+      changes.push({ ...base, id: `stage-${w.id}`, kind: 'stage', text: `${w.title}: moved to ${w.stage}` });
       noted = true;
     }
     if (w.review && w.review !== was.review) { changes.push({ ...base, id: `rev-${w.id}`, kind: 'review', text: `${w.title}: ${REVIEW_TEXT[w.review] ?? w.review}` }); noted = true; }

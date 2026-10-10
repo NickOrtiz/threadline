@@ -488,3 +488,15 @@ h1 { margin-bottom:8px; font-size: clamp(40px, 5vw, 70px); line-height:.96; lett
 .away-group ul { margin:0; padding-left:16px; color:var(--ink); font-size:13px; line-height:1.7; }
 .away-group a { color:inherit; text-decoration:underline; text-decoration-color:var(--line-strong); text-underline-offset:3px; }
 .away-card > p { margin:0; color:var(--muted); font-size:13px; }
+
+/* Report */
+.report-cards { display:grid; gap:16px; max-width:900px; }
+.report-card { padding:22px 24px; border:1px solid var(--line); border-radius:var(--radius-lg); background:rgb(var(--glass) / .46); }
+.report-card-head { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:12px; }
+.report-card-head h3 { margin:0; font-size:18px; letter-spacing:-.01em; }
+.report-lines { margin:0 0 10px; padding-left:18px; font-size:14px; line-height:1.7; }
+.report-lines a { color:inherit; text-decoration:underline; text-decoration-color:var(--line-strong); text-underline-offset:3px; }
+.report-lines span { color:var(--muted); }
+.report-meta { margin:4px 0 0; color:var(--muted); font-size:13px; }
+.report-meta em { color:var(--faint); font:500 11px var(--mono); font-style:normal; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
+.report-page .settings-hint { max-width:900px; }

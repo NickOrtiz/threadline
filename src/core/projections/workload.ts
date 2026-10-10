@@ -16,7 +16,7 @@ export interface RankedItem {
 }
 
 export function rankWorkItems(items: WorkItem[], today: string): RankedItem[] {
-  const open = items.filter(w => w.status !== 'done');
+  const open = items.filter(w => w.mine && w.status !== 'done');
   // A parent task is a container. Rank its open subtasks instead.
   const parentsWithOpenChildren = new Set(open.map(w => w.parentId).filter(Boolean));
 

@@ -20,6 +20,8 @@ export interface TeamworkTask {
   parentTaskId?: number | null;
   parentTask?: { id: number } | null;
   projectId?: number;
+  /** The board column(s) the task sits in. stageId 0 means not on a board. */
+  workflowStages?: { workflowId: number; stageId: number }[];
   createdAt: string;
   updatedAt: string;
   completedAt?: string | null;
@@ -38,18 +40,38 @@ export interface TeamworkProject {
   company?: { id: number; name?: string } | null;
 }
 
+/** One entry in Teamwork's activity log. */
+export interface TeamworkActivity {
+  id: number;
+  activityType: string; // "new" | "edited" | "completed" | "reopened" | "deleted" | ...
+  dateTime: string;
+  description: string | null;
+  extraDescription: string | null;
+  item: { id: number; type: string } | null; // type: "tasks" | "comments" | "timelogs" | ...
+  itemLink: string | null; // "tasks/19799105" for a comment on that task
+  project: { id: number } | null;
+}
+
 export interface TeamworkRecords {
   me: TeamworkPerson;
   openTasks: TeamworkTask[];
   completedTasks: TeamworkTask[];
   tasklists: Map<number, TeamworkTasklist>;
   projects: Map<number, TeamworkProject>;
+  /** Workflow stage id → stage name, for every board your tasks use. */
+  stages: Map<number, string>;
+  /** Your own activity log entries, newest first. */
+  activities: TeamworkActivity[];
+  /** Tasks in your activity that are no longer assigned to you, such as handed-off reviews. */
+  touchedTasks: TeamworkTask[];
 }
 
 export interface TeamworkAdapterOptions {
   site: string;
   apiKey: string;
   completedLookbackDays: number;
+  /** Your activity from this moment on is fetched, for daily reports. */
+  activitySince: Date;
 }
 
 export class TeamworkAdapter {
@@ -67,7 +89,39 @@ export class TeamworkAdapter {
     const projects = new Map<number, TeamworkProject>();
     const openTasks = await this.listTasks(base, tasklists, projects);
     const completedTasks = await this.listTasks({ ...base, completedOnly: 'true', completedAfter: since }, tasklists, projects);
-    return { me, openTasks, completedTasks, tasklists, projects };
+
+    const activities: TeamworkActivity[] = [];
+    for (let page = 1; page <= 10; page++) {
+      const res = await this.get<{ activities: TeamworkActivity[]; meta?: { page?: { hasMore?: boolean } } }>(
+        '/projects/api/v3/latestactivity.json',
+        { userIds: String(me.id), startDate: this.opts.activitySince.toISOString(), pageSize: '200', page: String(page) },
+      );
+      activities.push(...res.activities);
+      if (!res.meta?.page?.hasMore) break;
+    }
+
+    // Tasks you worked on that are no longer assigned to you.
+    const known = new Set([...openTasks, ...completedTasks].map(t => t.id));
+    const touchedIds = [...new Set(activities.map(a =>
+      a.item?.type === 'tasks' ? a.item.id : Number(a.itemLink?.match(/^tasks\/(\d+)/)?.[1] ?? NaN),
+    ))].filter(id => Number.isFinite(id) && !known.has(id));
+    const touchedTasks: TeamworkTask[] = [];
+    for (let i = 0; i < touchedIds.length; i += 50) {
+      const res = await this.get<{ tasks: TeamworkTask[]; included?: { tasklists?: unknown; projects?: unknown } }>('/projects/api/v3/tasks.json', {
+        ids: touchedIds.slice(i, i + 50).join(','), includeCompletedTasks: 'true', include: 'projects,tasklists', pageSize: '50',
+      });
+      touchedTasks.push(...res.tasks);
+      for (const tl of values<TeamworkTasklist>(res.included?.tasklists)) tasklists.set(Number(tl.id), tl);
+      for (const p of values<TeamworkProject>(res.included?.projects)) projects.set(Number(p.id), p);
+    }
+
+    const workflowIds = new Set([...openTasks, ...touchedTasks].flatMap(t => (t.workflowStages ?? []).map(s => s.workflowId)));
+    const stages = new Map<number, string>();
+    for (const id of workflowIds) {
+      const res = await this.get<{ stages: { id: number; name: string }[] }>(`/projects/api/v3/workflows/${id}/stages.json`, { pageSize: '100' });
+      for (const s of res.stages) stages.set(s.id, s.name.trim());
+    }
+    return { me, openTasks, completedTasks, tasklists, projects, stages, activities, touchedTasks };
   }
 
   private async listTasks(

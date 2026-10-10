@@ -21,6 +21,8 @@ export interface Snapshot {
   workItems: {
     id: string; title: string; projectId: string | null; status: string; dueAt: string | null;
     updatedAt: string; review: string | null; checks: string | null; url: string | null; kind: string;
+    /** Missing in snapshots taken before stages were tracked. */
+    stage?: string | null;
   }[];
   events: { id: string; title: string; startAt: string; endAt: string; url: string | null }[];
 }
@@ -29,9 +31,9 @@ export interface Snapshot {
 export function toSnapshot(store: EntityStore): Snapshot {
   return {
     syncedAt: store.syncedAt,
-    workItems: store.workItems.filter(w => w.source.type !== 'manual').map(w => ({
+    workItems: store.workItems.filter(w => w.source.type !== 'manual' && w.mine).map(w => ({
       id: w.id, title: w.title, projectId: w.projectId, status: w.status, dueAt: w.dueAt, updatedAt: w.updatedAt,
-      review: w.codeReview?.state ?? null, checks: w.codeReview?.checks ?? null, url: w.source.url, kind: w.kind,
+      review: w.codeReview?.state ?? null, checks: w.codeReview?.checks ?? null, url: w.source.url, kind: w.kind, stage: w.stage,
     })),
     events: store.events.map(e => ({ id: e.id, title: e.title, startAt: e.startAt, endAt: e.endAt, url: e.source.url })),
   };

@@ -12,12 +12,15 @@ import { rankWorkItems, type RankedItem } from './workload.ts';
 import { dayCapacity, deriveSchedule, focusMinutesAhead, isDayOff, nextWorkday } from './today.ts';
 import { deriveSignals, toAttentionItems } from './attention.ts';
 import { deriveProjects } from './projects.ts';
+import { deriveReports, type DayStages } from './report.ts';
 
 const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do' };
 
 export interface ViewExtras {
   todos: Todo[];
   continuity: z.infer<typeof ContinuityView> | null;
+  /** Stages at the start and end of each report day, from snapshots. */
+  stagesByDate?: Map<string, DayStages>;
 }
 
 export function buildView(store: EntityStore, memory: Memory, config: Config, now: Date, extras: ViewExtras = { todos: [], continuity: null }): ThreadlineView {
@@ -112,7 +115,7 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
       todoId: r.item.source.type === 'manual' ? r.item.source.id : undefined,
       estimate: minutesLabel(r.item.estimatedMinutes),
       projectId: r.item.projectId && projectsById.has(r.item.projectId) ? r.item.projectId : null,
-      status: r.item.status,
+      status: r.item.stage ?? r.item.status,
     })),
     projects: deriveProjects(store.projects, store.workItems, ranked, memory.projects, today),
     threads: memory.threads,
@@ -121,6 +124,10 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
     review: memory.review ?? { period: `${now.getFullYear()} · year to date`, themes: [], narrative: 'No evidence retained yet. Evidence collects here as work closes.' },
     todos: todoViews(extras.todos, today, now),
     continuity: extras.continuity,
+    reports: deriveReports({
+      today, days: config.report.days, activities: store.activities, workItems: store.workItems, ranked,
+      projects: store.projects, todos: extras.todos, stagesByDate: extras.stagesByDate ?? new Map(),
+    }),
   });
 }
 
@@ -141,7 +148,7 @@ function toFocus(r: RankedItem, today: string, now: Date): Focus {
       : item.codeReview ? 'Your PR cannot merge until this is done.'
       : 'Highest-ranked open task.',
     effort: minutesLabel(item.estimatedMinutes),
-    status: item.status === 'in_progress' ? 'In progress' : 'Not started',
+    status: item.stage ?? (item.status === 'in_progress' ? 'In progress' : 'Not started'),
     blockers: item.blockedBy,
     nextAction: item.nextAction ?? (item.status === 'in_progress' ? 'Continue where you left off.' : 'Start the task.'),
     continuity: item.source.type === 'manual'

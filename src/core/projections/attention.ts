@@ -72,6 +72,18 @@ export function deriveSignals(ctx: SignalContext): Signal[] {
     });
   }
 
+  for (const { item } of ctx.ranked) {
+    if (!item.needsResponse) continue;
+    signals.push({
+      id: `sig-response-${item.id}`, type: 'response_needed', level: 'next',
+      subject: { kind: 'workItem', id: item.id }, projectId: item.projectId,
+      title: item.title,
+      detail: item.stage ? `Moved to "${item.stage}".` : 'Handed back to you.',
+      why: 'The task came back to you with feedback.',
+      action: 'Respond to the feedback', dueAt: item.dueAt, derivation: rule('needs-response'),
+    });
+  }
+
   signals.push(...codeReviewSignals(ctx, rule));
   signals.push(...timeSignals(ctx, rule));
 

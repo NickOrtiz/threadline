@@ -102,6 +102,25 @@ If a variable is missing, the sync skips that source and says so. It does not fa
 
 **What becomes a project:** only Teamwork projects where you have tasks. Project membership alone does not count.
 
+**Board stages:** Threadline reads each task's workflow stage, the board column such as "In Review", and shows that name on cards. The stage also sets the task's status:
+
+| Stage name contains | Status | Effect |
+| --- | --- | --- |
+| needs attn, needs feedback, feedback shared, changes requested | Needs your response | Raises a NEXT item. |
+| blocked, on hold, paused | Blocked | Leaves your focus and Next up. |
+| done, complete, closed, deployed | Done | Leaves your open work. |
+| review, QA, testing, approved | Waiting on others | Leaves your focus, Next up, and today's capacity. |
+| in progress, doing, started | In progress | |
+| to do, planned, backlog, discovery, ready to start | Open | |
+
+Completion in Teamwork always wins. A task with no stage, or a stage no rule matches, falls back to its progress percentage. The sync lists unmatched stage names. To map one, or to correct a rule, add it to `teamwork.stageStatus`:
+
+```json
+"stageStatus": { "Icebox": "blocked", "In Client QA": "needs_response" }
+```
+
+The values are `open`, `in_progress`, `blocked`, `waiting`, `done`, and `needs_response`. Names match without regard to case.
+
 **Project names:** `teamwork.projects` maps a Teamwork project id to a stable Threadline id and a short name. An unmapped project gets the id `tw-<number>`, and its name is the Teamwork title up to the first " - " or "(". To find a project's id, open it in Teamwork and look at the URL: `/app/projects/<id>`.
 
 ### Connect Google Calendar
@@ -226,10 +245,12 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | `teamwork.completedLookbackDays` | `30` | How far back completed tasks count toward progress and weekly wins. |
 | `teamwork.excludeProjectIds` | `[]` | Teamwork projects to ignore, such as internal time tracking. |
 | `teamwork.projects` | `{}` | Teamwork project id → `{ "id", "name" }`. |
+| `teamwork.stageStatus` | `{}` | Board stage name → status, for stages the built-in rules read wrong. See [Connect Teamwork](#connect-teamwork). |
 | `calendar.calendarIds` | `["primary"]` | Google calendars to read. |
 | `calendar.lookaheadDays` | `7` | How many days ahead to read. |
 | `server.port` | `8080` | Port for `npm start` and `npm run serve`. The `PORT` environment variable overrides it. |
 | `server.syncIntervalMinutes` | `15` | How often `npm start` syncs. |
+| `report.days` | `7` | How many days the Report page covers, today included. |
 | `continuity.awayHours` | `8` | How long a gap must be before "while you were away" appears. |
 | `codeHosts[]` | `[]` | GitHub connections. See [Connect GitHub](#connect-github). |
 
@@ -275,6 +296,29 @@ Some work has no ticket: updating a local toolchain, rebuilding a database, a fo
 - Check one off in Next up, in the focus card, or on the To-dos page. Done to-dos stay on the To-dos page for 7 days, and they count toward the project's weekly wins.
 
 To-dos live in `memory/todos.json`, which is git-ignored. Adding and editing needs `npm start`, because the page saves through the local server. With a fixture or a static server, the To-dos page is read-only.
+
+## Daily report
+
+The **Report** page writes your status update for you. For each day, it lists the work you moved, grouped by project:
+
+> **Northwind**
+> • **Navigation behavior** — In Review. Ready for a team check (PR #184)
+> • **Homepage hero** — In Review. Ready for code review
+> _Next:_ Footer · Quote block
+
+Each line combines three things:
+
+- **What you did**, from Teamwork's activity log: your comments, updates, and completions. A comment becomes its first line, without the task name, plus the PR number when the comment links a pull request.
+- **Where the task is now**, from its board stage. When Threadline has a snapshot from the start of that day, the line shows the move, such as "In Progress → In Review".
+- **Your finished to-dos** for that day.
+
+For today, each project also lists what's next and what's waiting on others.
+
+Tasks you hand off stay in the report. When you reassign a task to reviewers, it leaves your focus and Next up, because it is no longer yours. Threadline still fetches it, so the report can show its stage, and "waiting on others" lists it until it's done.
+
+Select a day, then **Copy all for Slack** or **Copy** on one project. The clipboard gets rich text, so bold and bullets paste into Slack as they look, plus Slack markdown as a fallback.
+
+The page covers the last `report.days` days, 7 by default.
 
 ## While you were away
 
@@ -417,6 +461,9 @@ There are two layers.
 | v0.2 | Entity | Added `gitlab` to `SourceType`. |
 | v0.3 | View | Added `daily.greetingName` and `meta.timezone`. For live data, the UI builds the greeting and date from these at render time and re-checks them each minute, so an open page rolls over at noon, 5 PM, and midnight. Fixtures keep their authored `daily.headline` and `daily.date`. |
 | v0.4 | View | Added `todos[]`, `continuity`, and `todoId` on `focus` and `nextUp[]`. `daily.capacity.focusHours` now means focus time left today, and `allocation` is due work against that time. |
+| v0.5 | Entity | Added `WorkItem.stage`, the source's board column or workflow stage, and `WorkItem.needsResponse`. Teamwork sets status from the stage. Snapshots record the stage, so stage moves appear in "while you were away". |
+| v0.6 | Entity | Added the `Activity` entity (your comments, updates, and completions) and `EntityStore.activities`. Added `WorkItem.mine`: false for work you touched that is no longer assigned to you. Only your own work ranks, counts toward capacity, or enters snapshots. |
+| v0.6 | View | Added `reports[]`: per-day, per-project status lines with Slack-formatted text. |
 
 All view additions are optional, so older fixtures stay valid.
 

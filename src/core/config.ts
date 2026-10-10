@@ -41,12 +41,21 @@ export const Config = z.object({
     excludeProjectIds: z.array(z.string()).default([]),
     /** Teamwork project id → stable Threadline id and short display name. */
     projects: z.record(z.string(), z.object({ id: z.string(), name: z.string() })).default({}),
+    /**
+     * Stage name → status, for stages the built-in rules read wrong.
+     * "needs_response" means the task came back to you.
+     */
+    stageStatus: z.record(z.string(), z.enum(['open', 'in_progress', 'blocked', 'waiting', 'done', 'needs_response'])).default({}),
   }),
   calendar: z.object({
     calendarIds: z.array(z.string()).default(['primary']),
     lookaheadDays: z.number().int().positive().default(7),
   }),
   codeHosts: z.array(CodeHost).default([]),
+  report: z.object({
+    /** How many days back the report page covers, today included. */
+    days: z.number().int().min(1).max(30).default(7),
+  }).default({ days: 7 }),
   continuity: z.object({
     /** A gap at least this long between sessions shows "while you were away". */
     awayHours: z.number().positive().default(8),

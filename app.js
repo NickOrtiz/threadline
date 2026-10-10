@@ -41,7 +41,8 @@ window.startThreadline = (initial) => {
     ['/projects', '04', 'Projects'],
     ['/goals', '05', 'Goals'],
     ['/knowledge', '06', 'Knowledge'],
-    ['/review', '07', 'Review']
+    ['/review', '07', 'Review'],
+    ['/report', '08', 'Report']
   ];
 
   const esc = (s='') => String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -325,6 +326,53 @@ window.startThreadline = (initial) => {
     </section>`;
   }
 
+  let reportDate = null;
+
+  /** Rich text for Slack: pasting HTML keeps bold and bullets. */
+  function reportHtml(projects, heading) {
+    const block = (p, h) => `<p><b>${esc(h || p.name)}</b></p><ul>${p.lines.map(l => `<li><b>${esc(l.title)}</b>${l.detail ? ` — ${esc(l.detail)}` : ''}</li>`).join('')}</ul>`
+      + (p.next.length ? `<p><i>Next:</i> ${esc(p.next.join(' · '))}</p>` : '')
+      + (p.waiting.length ? `<p><i>Waiting on others:</i> ${esc(p.waiting.join(' · '))}</p>` : '');
+    return (heading ? `<p><b>${esc(heading)}</b></p>` : '') + projects.map(p => block(p)).join('');
+  }
+
+  async function copyReport(text, html) {
+    try {
+      if (window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([text], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      return true;
+    } catch {
+      // Fallback for browsers that block the clipboard API.
+      const area = Object.assign(document.createElement('textarea'), { value: text });
+      document.body.appendChild(area); area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      return ok;
+    }
+  }
+
+  function reportPage() {
+    const reports = D.reports || [];
+    if (!reports.length) return `<div class="page">${pageHeader('Report','What you moved.','Your status report builds itself from your activity in Teamwork and your current board stages.')}${empty('No activity to report yet.')}</div>`;
+    const day = reports.find(r => r.date === reportDate) || reports[0];
+    const chips = reports.map(r => `<button type="button" class="filter-chip ${r === day ? 'active' : ''}" data-report-date="${esc(r.date)}">${esc(r.label)}</button>`).join('');
+    const cards = day.projects.map((p, i) => `<article class="report-card">
+        <div class="report-card-head"><h3>${esc(p.name)}</h3><button type="button" class="secondary-button" data-copy-project="${i}">Copy</button></div>
+        <ul class="report-lines">${p.lines.map(l => `<li><strong>${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>` : esc(l.title)}</strong>${l.detail ? `<span> — ${esc(l.detail)}</span>` : ''}</li>`).join('')}</ul>
+        ${p.next.length ? `<p class="report-meta"><em>Next:</em> ${esc(p.next.join(' · '))}</p>` : ''}
+        ${p.waiting.length ? `<p class="report-meta"><em>Waiting on others:</em> ${esc(p.waiting.join(' · '))}</p>` : ''}
+      </article>`).join('');
+    return `<div class="page report-page">${pageHeader('Report','What you moved.','Built from your Teamwork activity and current board stages. Copy it into Slack as is, or edit it there.',
+      day.projects.length ? `<button type="button" class="primary-button" data-copy-all>Copy all for Slack</button>` : '')}
+      <div class="attention-controls">${chips}</div>
+      ${day.projects.length ? `<div class="report-cards">${cards}</div>` : empty(day.label === 'Today' ? 'Nothing logged in Teamwork yet today.' : 'Nothing logged that day.')}
+      <p class="settings-hint">Includes your comments, updates, and completions in Teamwork, and your finished to-dos. Board stages show where each task is now${day.label === 'Today' ? '' : ' or was at the end of that day, when Threadline has a snapshot'}.</p>
+    </div>`;
+  }
+
   function notFound(){ return `<div class="page">${pageHeader('404','Nothing here.','The route exists outside the current prototype.')}</div>`; }
 
   function route(keepScroll=false){
@@ -343,6 +391,7 @@ window.startThreadline = (initial) => {
     else if(path==='/review') app.innerHTML=reviewPage();
     else if(path==='/settings') app.innerHTML=settingsPage();
     else if(path==='/todos') app.innerHTML=todosPage();
+    else if(path==='/report') app.innerHTML=reportPage();
     else app.innerHTML=notFound();
     bindPageEvents();
     if(!keepScroll) window.scrollTo({top:0,behavior:'instant'});
@@ -394,6 +443,19 @@ window.startThreadline = (initial) => {
         form.querySelector('button[type=submit]').disabled = false;
       }
     });
+    document.querySelectorAll('[data-report-date]').forEach(b => b.addEventListener('click', () => { reportDate = b.dataset.reportDate; route(true); }));
+    const flash = (btn, ok) => { const t = btn.textContent; btn.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { btn.textContent = t; }, 1600); };
+    const currentDay = () => (D.reports || []).find(r => r.date === reportDate) || (D.reports || [])[0];
+    document.querySelector('[data-copy-all]')?.addEventListener('click', async e => {
+      const day = currentDay(), btn = e.currentTarget;
+      const heading = day.text.split('\n')[0].replace(/\*/g, '');
+      flash(btn, await copyReport(day.text, reportHtml(day.projects, heading)));
+    });
+    document.querySelectorAll('[data-copy-project]').forEach(b => b.addEventListener('click', async () => {
+      const p = currentDay().projects[Number(b.dataset.copyProject)];
+      const heading = p.text.split('\n')[0].replace(/\*/g, '');
+      flash(b, await copyReport(p.text, reportHtml([p]).replace(`<b>${esc(p.name)}</b>`, `<b>${esc(heading)}</b>`)));
+    }));
     document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{activeDetailTab=btn.dataset.tab;route();}));
     const addNote=document.getElementById('add-note');
     if(addNote) addNote.addEventListener('click',()=>{const input=document.getElementById('new-note');if(!input.value.trim())return; const path=location.hash.split('/'); const t=thread(path[path.length-1]); t.notes.push({id:`note-${Date.now()}`,at:'Just now',body:input.value.trim()}); input.value=''; route();});

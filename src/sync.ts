@@ -11,13 +11,14 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { loadConfig, type Config } from './core/config.ts';
-import { EntityStore, type Event, type Project, type WorkItem } from './core/schema/entities.ts';
+import { EntityStore, type Activity, type Event, type Project, type WorkItem } from './core/schema/entities.ts';
 import { buildView } from './core/projections/view.ts';
 import { diffSnapshots } from './core/projections/changes.ts';
 import type { ContinuityView } from './core/schema/view.ts';
 import { loadMemory } from './storage/memory.ts';
 import { loadTodos } from './storage/todos.ts';
 import { loadActivity, saveSnapshot, snapshotAt, toSnapshot } from './storage/history.ts';
+import type { DayStages, StageMap } from './core/projections/report.ts';
 import { localDate, localIso, addDays, atTime } from './core/time.ts';
 import { TeamworkAdapter } from './adapters/teamwork/adapter.ts';
 import { normalizeTeamwork } from './adapters/teamwork/normalize.ts';
@@ -53,7 +54,11 @@ if (!rebuild) {
 const todos = await loadTodos();
 const workItems = [...synced.workItems, ...todos.map(t => normalizeTodo(t, synced.syncedAt))];
 const store = EntityStore.parse({ ...synced, workItems, projects: withReferencedProjects(synced.projects, workItems, config, synced.syncedAt) });
-const view = buildView(store, await loadMemory(), config, now, { todos, continuity: await continuityFor(synced, config, now) });
+const view = buildView(store, await loadMemory(), config, now, {
+  todos,
+  continuity: await continuityFor(synced, config, now),
+  stagesByDate: await stagesForReport(config, now),
+});
 await writeFile('data/state.json', JSON.stringify(view, null, 2));
 
 if (rebuild) {
@@ -81,6 +86,7 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
   let projects: Project[] = [];
   let workItems: WorkItem[] = [];
   let events: Event[] = [];
+  let activities: Activity[] = [];
   const sourceStatus: EntityStore['sourceStatus'] = [];
 
   // Teamwork first: calendar events link to its projects by name.
@@ -90,8 +96,12 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
         site: config.teamwork.site,
         apiKey: process.env.TEAMWORK_API_KEY,
         completedLookbackDays: config.teamwork.completedLookbackDays,
+        // Midnight, report.days ago: enough history for the report page.
+        activitySince: atTime(addDays(localDate(now), -(config.report.days - 1)), '00:00'),
       }).sync();
-      ({ projects, workItems } = normalizeTeamwork(records, config, syncedAt));
+      const result = normalizeTeamwork(records, config, syncedAt);
+      ({ projects, workItems, activities } = result);
+      if (result.unrecognizedStages.length) notes.push(`Teamwork stages with no status rule (add them to teamwork.stageStatus): ${result.unrecognizedStages.join(', ')}`);
       const { firstName, lastName, id } = records.me;
       user = { id: String(id), name: `${firstName} ${lastName}`, initials: `${firstName[0]}${lastName[0]}`.toUpperCase() };
       sourceStatus.push({ type: 'teamwork', ok: true, message: `${workItems.length} tasks across ${projects.length} projects` });
@@ -138,7 +148,23 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
     sourceStatus.push({ type: 'google-calendar', ok: false, message: 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set' });
   }
 
-  return EntityStore.parse({ syncedAt, user, projects, workItems, events, sourceStatus });
+  return EntityStore.parse({ syncedAt, user, projects, workItems, events, activities, sourceStatus });
+}
+
+/** Each report day's start-of-day and end-of-day stages, from snapshots. */
+async function stagesForReport(config: Config, now: Date): Promise<Map<string, DayStages>> {
+  const toMap = (s: Awaited<ReturnType<typeof snapshotAt>>): StageMap =>
+    s ? new Map(s.workItems.filter(w => w.stage !== undefined).map(w => [w.id, w.stage ?? null])) : null;
+  const out = new Map<string, DayStages>();
+  const today = localDate(now);
+  for (let d = 0; d < config.report.days; d++) {
+    const date = addDays(today, -d);
+    out.set(date, {
+      start: toMap(await snapshotAt(atTime(date, '00:00'))),
+      end: d === 0 ? null : toMap(await snapshotAt(atTime(addDays(date, 1), '00:00'))),
+    });
+  }
+  return out;
 }
 
 /**
