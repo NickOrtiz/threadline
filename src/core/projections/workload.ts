@@ -15,7 +15,10 @@ export interface RankedItem {
   stale: boolean;
 }
 
-export function rankWorkItems(items: WorkItem[], today: string): RankedItem[] {
+/** Optional per-project adjustment, such as booking pace. Small, so due dates still lead. */
+export type ProjectBoost = (projectId: string | null) => number;
+
+export function rankWorkItems(items: WorkItem[], today: string, boost: ProjectBoost = () => 0): RankedItem[] {
   const open = items.filter(w => w.mine && w.status !== 'done');
   // A parent task is a container. Rank its open subtasks instead.
   const parentsWithOpenChildren = new Set(open.map(w => w.parentId).filter(Boolean));
@@ -25,7 +28,7 @@ export function rankWorkItems(items: WorkItem[], today: string): RankedItem[] {
     .map(item => {
       const daysUntilDue = item.dueAt ? daysBetween(today, item.dueAt) : null;
       const stale = (daysUntilDue !== null && daysUntilDue < -STALE_AFTER_DAYS) || abandonedReview(item, today);
-      return { item, daysUntilDue, stale, score: stale ? 0 : score(item, daysUntilDue, today) };
+      return { item, daysUntilDue, stale, score: stale ? 0 : score(item, daysUntilDue, today) + boost(item.projectId) };
     })
     .sort((a, b) => b.score - a.score || (a.item.dueAt ?? '9999').localeCompare(b.item.dueAt ?? '9999'));
 }

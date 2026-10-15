@@ -15,6 +15,20 @@ const Continuity = z.object({
   restart: z.string(),
 });
 
+/** A PRD reduced to what helps while doing the work. */
+export const PrdSummary = z.object({
+  code: z.string().nullable(),
+  /** Link into the knowledge base, such as Relay Cloud. */
+  url: z.string().nullable().optional(),
+  title: z.string(),
+  status: z.string(),
+  acceptanceTotal: z.number(),
+  acceptanceDone: z.number(),
+  openQuestions: z.array(z.string()),
+  neededDependencies: z.array(z.string()),
+  designLinks: z.array(z.string()),
+});
+
 export const AttentionItem = z.object({
   id: z.string(),
   level: AttentionLevel,
@@ -38,6 +52,8 @@ export const Focus = z.object({
   sourceUrl: z.string().nullable().optional(),
   /** Set when the focus is one of your own to-dos, so the UI can complete it. */
   todoId: z.string().optional(),
+  /** PRDs that describe this work. */
+  prds: z.array(PrdSummary).optional(),
   title: z.string(),
   description: z.string(),
   reason: z.string(),
@@ -62,6 +78,8 @@ export const NextUpItem = z.object({
   source: z.string(),
   sourceUrl: z.string().nullable().optional(),
   todoId: z.string().optional(),
+  /** The first PRD for this work, when there is one. */
+  prd: z.object({ code: z.string().nullable(), title: z.string(), openQuestions: z.number() }).optional(),
   estimate: z.string(),
   projectId: z.string().nullable(),
   status: z.string(),
@@ -79,6 +97,23 @@ export const ProjectView = z.object({
   nextMilestone: z.string(),
   sourceUrl: z.string().nullable().optional(),
   health: z.record(z.string(), z.string()),
+  /** The project's knowledge base (read-only), such as Relay Cloud. */
+  knowledgeBase: z.object({
+    spaces: z.array(z.object({ name: z.string(), url: z.string() })),
+    counts: z.record(z.string(), z.number()),
+    /** PRDs still in play (draft, approved, in progress), linked ones first. */
+    active: z.array(z.object({ code: z.string().nullable(), title: z.string(), status: z.string(), url: z.string().nullable(), openQuestions: z.number(), linked: z.boolean() })),
+    implemented: z.number(),
+    notebooks: z.array(z.object({ title: z.string(), url: z.string().nullable(), updatedAt: z.string() })),
+  }).optional(),
+  /** Recent entries from the work journal for this project. */
+  record: z.array(z.object({ date: z.string(), kind: z.string(), title: z.string(), detail: z.string().nullable(), url: z.string().nullable() })).optional(),
+  /** This week's booked hours against logged hours. Absent without bookings. */
+  week: z.object({
+    booked: z.number(), logged: z.number(), remaining: z.number(),
+    status: z.enum(['behind', 'on_pace', 'done', 'over']),
+    manager: z.string().nullable(),
+  }).optional(),
   goals: z.array(z.string()),
   accomplishments: z.array(z.string()),
   decisions: z.array(z.object({ id: z.string(), title: z.string(), date: z.string(), rationale: z.string() })),
@@ -106,6 +141,16 @@ export const ThreadView = z.object({
   linked: z.array(z.string()),
   continuity: Continuity,
   candidateLearnings: z.array(z.string()),
+  /** The source's board stage, such as "In Review". */
+  stage: z.string().nullable().optional(),
+  /** Links across systems: the task, pull requests, PRDs, and designs. */
+  links: z.array(z.object({ label: z.string(), url: z.string(), kind: z.string(), state: z.string().nullable() })).optional(),
+  /** What happened on this work, newest first. */
+  timeline: z.array(z.object({ date: z.string(), kind: z.string(), text: z.string(), url: z.string().nullable() })).optional(),
+  /** Hours you logged on it in the recent time logs. */
+  hours: z.number().optional(),
+  prds: z.array(PrdSummary).optional(),
+  sourceUrl: z.string().nullable().optional(),
 });
 
 export const GoalView = z.object({
@@ -121,6 +166,7 @@ export const GoalView = z.object({
   linkedProjects: z.array(z.string()),
   evidence: z.array(z.object({ title: z.string(), detail: z.string(), strength: z.string() })),
   risk: z.string(),
+  sourceUrl: z.string().nullable().optional(),
 });
 
 export const KnowledgeView = z.object({
@@ -211,6 +257,8 @@ export const ThreadlineView = z.object({
       allocation: z.number(),
       status: z.string(),
     }),
+    /** This week's booked hours against your working hours. Absent without bookings. */
+    week: z.object({ booked: z.number(), logged: z.number(), available: z.number() }).optional(),
   }),
   focus: Focus.nullable(),
   attention: z.array(AttentionItem),

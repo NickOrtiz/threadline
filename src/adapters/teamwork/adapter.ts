@@ -40,6 +40,17 @@ export interface TeamworkProject {
   company?: { id: number; name?: string } | null;
 }
 
+/** One time log entry. */
+export interface TeamworkTimelog {
+  id: number;
+  minutes: number;
+  timeLogged: string;
+  isBillable?: boolean;
+  billable?: boolean;
+  projectId: number | null;
+  taskId: number | null;
+}
+
 /** One entry in Teamwork's activity log. */
 export interface TeamworkActivity {
   id: number;
@@ -64,6 +75,8 @@ export interface TeamworkRecords {
   activities: TeamworkActivity[];
   /** Tasks in your activity that are no longer assigned to you, such as handed-off reviews. */
   touchedTasks: TeamworkTask[];
+  /** Your time logs since activitySince. */
+  timelogs: TeamworkTimelog[];
 }
 
 export interface TeamworkAdapterOptions {
@@ -121,7 +134,15 @@ export class TeamworkAdapter {
       const res = await this.get<{ stages: { id: number; name: string }[] }>(`/projects/api/v3/workflows/${id}/stages.json`, { pageSize: '100' });
       for (const s of res.stages) stages.set(s.id, s.name.trim());
     }
-    return { me, openTasks, completedTasks, tasklists, projects, stages, activities, touchedTasks };
+    const timelogs: TeamworkTimelog[] = [];
+    for (let page = 1; page <= 10; page++) {
+      const res = await this.get<{ timelogs: TeamworkTimelog[]; meta?: { page?: { hasMore?: boolean } } }>('/projects/api/v3/time.json', {
+        assignedToUserIds: String(me.id), startDate: localDay(this.opts.activitySince), endDate: localDay(new Date()), pageSize: '500', page: String(page),
+      });
+      timelogs.push(...res.timelogs);
+      if (!res.meta?.page?.hasMore) break;
+    }
+    return { me, openTasks, completedTasks, tasklists, projects, stages, activities, touchedTasks, timelogs };
   }
 
   private async listTasks(
@@ -157,6 +178,8 @@ export class TeamworkAdapter {
     return res.json() as Promise<T>;
   }
 }
+
+const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /** Teamwork sideloads arrive as an object keyed by id; accept arrays too. */
 function values<T>(collection: unknown): T[] {

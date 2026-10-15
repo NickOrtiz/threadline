@@ -3,7 +3,7 @@
 // Deterministic only. Teamwork already knows titles, dates, estimates,
 // and completion, so nothing here guesses.
 
-import type { Activity, Project, WorkItem } from '../../core/schema/entities.ts';
+import type { Activity, Project, TimeLog, WorkItem } from '../../core/schema/entities.ts';
 import type { Config } from '../../core/config.ts';
 import type { TeamworkActivity, TeamworkProject, TeamworkRecords, TeamworkTask } from './adapter.ts';
 
@@ -21,6 +21,7 @@ function shortName(project: TeamworkProject, config: Config): string {
 }
 
 const dateOnly = (v: string | null | undefined) => (v ? v.slice(0, 10) : null);
+const localDayOf = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 export function normalizeTeamworkProject(project: TeamworkProject, config: Config, syncedAt: string): Project {
   return {
@@ -88,6 +89,7 @@ export function normalizeTeamworkTask(task: TeamworkTask, records: TeamworkRecor
     stage,
     needsResponse: mine && meaning === 'needs_response',
     mine,
+    prdIds: [],
     updatedAt: task.updatedAt,
     source: { type: 'teamwork', id: String(task.id), url: `${config.teamwork.site}/app/tasks/${task.id}`, syncedAt },
   };
@@ -101,10 +103,12 @@ const ACTIVITY_KIND: Record<string, Activity['kind']> = { edited: 'updated', com
  */
 export function commentExcerpt(description: string, taskTitle: string): string {
   const firstLine = description.split('\n').map(l => l.replace(/\s+/g, ' ').trim()).find(Boolean) ?? '';
-  let text = firstLine;
+  // Links read badly in a one-line note: drop them (the PR number is added back below).
+  let text = firstLine.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').replace(/\s+([.,;:])/g, '$1').trim();
   const prefix = taskTitle.trim().toLowerCase();
   if (prefix && text.toLowerCase().startsWith(prefix)) text = text.slice(prefix.length).replace(/^[\s:–—-]+/, '');
-  if (text.length > 140) text = `${text.slice(0, 137).replace(/\s+\S*$/, '')}…`;
+  // Long notes keep their first sentence.
+  if (text.length > 140) text = text.match(/^.{20,140}?[.!?](?=\s|$)/)?.[0] ?? `${text.slice(0, 137).replace(/\s+\S*$/, '')}…`;
   text = text.charAt(0).toUpperCase() + text.slice(1);
   const pr = description.match(/github\.com\/[^\s/]+\/[^\s/]+\/pull\/(\d+)/);
   if (pr && !text.includes(`#${pr[1]}`)) text = `${text.replace(/[.\s]+$/, '')} (PR #${pr[1]})`;
@@ -121,12 +125,17 @@ export function normalizeTeamworkActivity(a: TeamworkActivity, config: Config, s
     const taskId = a.itemLink?.match(/^tasks\/(\d+)/)?.[1];
     if (!taskId || !a.description) return null;
     const title = a.extraDescription ?? 'Task';
-    return { ...base, kind: 'comment', workItemId: `tw-task-${taskId}`, title, text: commentExcerpt(a.description, title), url: `${config.teamwork.site}/app/tasks/${taskId}` };
+    const links = [...new Set([
+      ...(a.description.match(/https:\/\/github\.com\/[^\s/]+\/[^\s/]+\/pull\/\d+/g) ?? []),
+      // Short references such as "acme/website#383".
+      ...[...a.description.matchAll(/(?<![\w/.-])([A-Za-z0-9][\w.-]*)\/([A-Za-z0-9][\w.-]*)#(\d+)/g)].map(m => `https://github.com/${m[1]}/${m[2]}/pull/${m[3]}`),
+    ])];
+    return { ...base, kind: 'comment', workItemId: `tw-task-${taskId}`, title, text: commentExcerpt(a.description, title), links, url: `${config.teamwork.site}/app/tasks/${taskId}` };
   }
   if (a.item.type === 'tasks') {
     const kind = ACTIVITY_KIND[a.activityType];
     if (!kind) return null;
-    return { ...base, kind, workItemId: `tw-task-${a.item.id}`, title: a.description ?? 'Task', text: null, url: `${config.teamwork.site}/app/tasks/${a.item.id}` };
+    return { ...base, kind, workItemId: `tw-task-${a.item.id}`, title: a.description ?? 'Task', text: null, links: [], url: `${config.teamwork.site}/app/tasks/${a.item.id}` };
   }
   return null;
 }
@@ -154,7 +163,19 @@ export function normalizeTeamwork(records: TeamworkRecords, config: Config, sync
     .map(a => normalizeTeamworkActivity(a, config, syncedAt))
     .filter((a): a is Activity => a !== null && !(a.projectId && isExcludedProject(a.projectId, config, excluded)));
 
-  return { projects, workItems, unrecognizedStages, activities };
+  const timeLogs = records.timelogs.map((t): TimeLog => ({
+    id: `tw-time-${t.id}`,
+    // Excluded projects, such as internal time, count as "Other".
+    projectId: t.projectId && !excluded.has(String(t.projectId)) ? threadlineProjectId(t.projectId, config) : null,
+    workItemId: t.taskId ? `tw-task-${t.taskId}` : null,
+    // timeLogged is the moment the work happened, in UTC; its local date is the day it counts for.
+    date: localDayOf(t.timeLogged),
+    minutes: t.minutes,
+    billable: t.isBillable ?? t.billable ?? true,
+    source: { type: 'teamwork', id: String(t.id), url: null, syncedAt },
+  }));
+
+  return { projects, workItems, unrecognizedStages, activities, timeLogs };
 }
 
 function isExcludedProject(projectId: string, config: Config, excluded: Set<string>): boolean {

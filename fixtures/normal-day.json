@@ -23,6 +23,11 @@
       "meetingsHours": 2.5,
       "allocation": 72,
       "status": "Healthy"
+    },
+    "week": {
+      "booked": 30,
+      "logged": 17.5,
+      "available": 32
     }
   },
   "focus": {
@@ -43,7 +48,25 @@
         "Should focus return to the parent trigger after Escape?"
       ],
       "restart": "Open PR #184 beside the interaction notes; keyboard behavior is the only unresolved piece."
-    }
+    },
+    "prds": [
+      {
+        "code": "PRD-03.3.01",
+        "title": "Navigation Redesign",
+        "status": "approved",
+        "acceptanceTotal": 12,
+        "acceptanceDone": 9,
+        "openQuestions": [
+          "Should Escape return focus to the parent trigger?"
+        ],
+        "neededDependencies": [
+          "Accessibility review sign-off"
+        ],
+        "designLinks": [
+          "https://www.figma.com/design/EXAMPLE/Northwind-Navigation"
+        ]
+      }
+    ]
   },
   "attention": [
     {
@@ -147,7 +170,12 @@
       "source": "GitHub",
       "estimate": "20 min",
       "projectId": "northwind",
-      "status": "Ready"
+      "status": "Ready",
+      "prd": {
+        "code": "PRD-03.3.01",
+        "title": "Navigation Redesign",
+        "openQuestions": 1
+      }
     },
     {
       "id": "task-sync",
@@ -245,6 +273,13 @@
           "Resolve review comments",
           "Prepare homepage implementation sequence"
         ]
+      },
+      "week": {
+        "booked": 16,
+        "logged": 7,
+        "remaining": 9,
+        "status": "behind",
+        "manager": "Sam Lee"
       }
     },
     {
@@ -292,6 +327,13 @@
           "Confirm ownership",
           "Begin implementation after approval"
         ]
+      },
+      "week": {
+        "booked": 10,
+        "logged": 8.5,
+        "remaining": 1.5,
+        "status": "on_pace",
+        "manager": "Priya Shah"
       }
     },
     {
@@ -349,6 +391,13 @@
           "Define schema v0.1",
           "Connect first source"
         ]
+      },
+      "week": {
+        "booked": 4,
+        "logged": 2,
+        "remaining": 2,
+        "status": "on_pace",
+        "manager": null
       }
     }
   ],

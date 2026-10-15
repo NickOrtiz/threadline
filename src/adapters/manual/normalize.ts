@@ -24,6 +24,7 @@ export function normalizeTodo(todo: Todo, syncedAt: string): WorkItem {
     stage: null,
     needsResponse: false,
     mine: true,
+    prdIds: [],
     updatedAt: todo.updatedAt,
     source: { type: 'manual', id: todo.id, url: null, syncedAt },
   };

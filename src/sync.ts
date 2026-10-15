@@ -11,7 +11,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { loadConfig, type Config } from './core/config.ts';
-import { EntityStore, type Activity, type Event, type Project, type WorkItem } from './core/schema/entities.ts';
+import { EntityStore, type Activity, type Allocation, type Event, type Goal, type KnowledgeDocument, type Leave, type Project, type Requirement, type TimeLog, type WorkItem } from './core/schema/entities.ts';
 import { buildView } from './core/projections/view.ts';
 import { diffSnapshots } from './core/projections/changes.ts';
 import type { ContinuityView } from './core/schema/view.ts';
@@ -19,6 +19,9 @@ import { loadMemory } from './storage/memory.ts';
 import { loadTodos } from './storage/todos.ts';
 import { loadActivity, saveSnapshot, snapshotAt, toSnapshot } from './storage/history.ts';
 import type { DayStages, StageMap } from './core/projections/report.ts';
+import { deriveJournalEntries } from './core/projections/journal.ts';
+import { appendJournal, readJournal } from './storage/journal.ts';
+import { loadNotes } from './storage/notes.ts';
 import { localDate, localIso, addDays, atTime } from './core/time.ts';
 import { TeamworkAdapter } from './adapters/teamwork/adapter.ts';
 import { normalizeTeamwork } from './adapters/teamwork/normalize.ts';
@@ -27,6 +30,12 @@ import { normalizeCalendar } from './adapters/calendar/normalize.ts';
 import { GithubAdapter } from './adapters/github/adapter.ts';
 import { normalizeGithub } from './adapters/github/normalize.ts';
 import { normalizeTodo } from './adapters/manual/normalize.ts';
+import { RelayAdapter } from './adapters/relay/adapter.ts';
+import { linkRequirements, normalizeRelayListing, normalizeRelayPrd } from './adapters/relay/normalize.ts';
+import { MALCOLM_IMPORT_PATH, MalcolmImport } from './adapters/malcolm/schema.ts';
+import { normalizeMalcolm } from './adapters/malcolm/normalize.ts';
+import { LEAPSOME_IMPORT_PATH, LeapsomeImport } from './adapters/leapsome/schema.ts';
+import { normalizeLeapsome } from './adapters/leapsome/normalize.ts';
 import type { z } from 'zod';
 
 const rebuild = process.argv.includes('--rebuild');
@@ -46,6 +55,10 @@ if (!synced) {
 if (!rebuild) {
   await mkdir('data', { recursive: true });
   await writeFile('data/entities.json', JSON.stringify(synced, null, 2));
+  // The journal is permanent. It is written before the new snapshot, so stage
+  // moves compare against the previous one.
+  const journaled = await appendJournal(deriveJournalEntries(synced, await snapshotAt(now), await loadTodos(), localDate(now)));
+  if (journaled) notes.push(`Added ${journaled} entr${journaled === 1 ? 'y' : 'ies'} to the work journal.`);
   // Only a complete sync becomes history. A failed source would look like
   // all of its work vanished.
   if (synced.sourceStatus.every(s => s.ok)) await saveSnapshot(toSnapshot(synced));
@@ -58,6 +71,8 @@ const view = buildView(store, await loadMemory(), config, now, {
   todos,
   continuity: await continuityFor(synced, config, now),
   stagesByDate: await stagesForReport(config, now),
+  journal: await readJournal(addDays(localDate(now), -30)),
+  notes: await loadNotes(),
 });
 await writeFile('data/state.json', JSON.stringify(view, null, 2));
 
@@ -87,6 +102,12 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
   let workItems: WorkItem[] = [];
   let events: Event[] = [];
   let activities: Activity[] = [];
+  let timeLogs: TimeLog[] = [];
+  let allocations: Allocation[] = [];
+  let leave: Leave[] = [];
+  let requirements: Requirement[] = [];
+  let documents: KnowledgeDocument[] = [];
+  let goals: Goal[] = [];
   const sourceStatus: EntityStore['sourceStatus'] = [];
 
   // Teamwork first: calendar events link to its projects by name.
@@ -100,7 +121,7 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
         activitySince: atTime(addDays(localDate(now), -(config.report.days - 1)), '00:00'),
       }).sync();
       const result = normalizeTeamwork(records, config, syncedAt);
-      ({ projects, workItems, activities } = result);
+      ({ projects, workItems, activities, timeLogs } = result);
       if (result.unrecognizedStages.length) notes.push(`Teamwork stages with no status rule (add them to teamwork.stageStatus): ${result.unrecognizedStages.join(', ')}`);
       const { firstName, lastName, id } = records.me;
       user = { id: String(id), name: `${firstName} ${lastName}`, initials: `${firstName[0]}${lastName[0]}`.toUpperCase() };
@@ -127,6 +148,52 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
     }
   }
 
+  // Relay: PRDs for the mapped projects, linked to the work they describe.
+  const relaySlugs = [...new Set(Object.values(config.relay.projects).flat())];
+  if (relaySlugs.length && !config.relay.url) {
+    sourceStatus.push({ type: 'relay', ok: false, message: 'Set relay.url in threadline.config.json' });
+  } else if (relaySlugs.length && config.relay.url && process.env.RELAY_API_KEY) {
+    try {
+      const { prds, listings, fetched } = await new RelayAdapter(config.relay.url, process.env.RELAY_API_KEY, relaySlugs).sync();
+      requirements = prds.map(p => normalizeRelayPrd(p, config, syncedAt));
+      documents = listings.map(l => normalizeRelayListing(l, config, syncedAt));
+      workItems = linkRequirements(workItems, requirements);
+      const linked = workItems.filter(w => w.prdIds.length).length;
+      sourceStatus.push({ type: 'relay', ok: true, message: `${requirements.length} PRDs across ${relaySlugs.length} projects, ${linked} linked to your work (${fetched} refreshed)` });
+    } catch (err) {
+      sourceStatus.push({ type: 'relay', ok: false, message: (err as Error).message });
+    }
+  } else if (relaySlugs.length) {
+    sourceStatus.push({ type: 'relay', ok: false, message: 'RELAY_API_KEY is not set' });
+  }
+
+  // Malcolm: read the last import. `npm run import:malcolm` (or the server) refreshes it.
+  if (config.malcolm.enabled) {
+    try {
+      const data = MalcolmImport.parse(JSON.parse(await readFile(MALCOLM_IMPORT_PATH, 'utf8')));
+      ({ allocations, leave } = normalizeMalcolm(data, config, syncedAt));
+      const ageHours = (Date.now() - Date.parse(data.importedAt)) / 3_600_000;
+      const age = ageHours < 1 ? 'under an hour ago' : `${Math.round(ageHours)} h ago`;
+      sourceStatus.push({ type: 'malcolm', ok: true, message: `${allocations.length} allocations, ${leave.length} leave requests, imported ${age}${ageHours > config.malcolm.maxAgeHours ? ' (stale: run npm run import:malcolm)' : ''}` });
+    } catch (err) {
+      const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
+      sourceStatus.push({ type: 'malcolm', ok: false, message: missing ? 'No import yet. Run npm run import:malcolm' : `Import file is invalid: ${(err as Error).message.slice(0, 160)}` });
+    }
+  }
+
+  // Leapsome: read the last goal import. `npm run import:leapsome` (or the server) refreshes it.
+  if (config.leapsome.enabled) {
+    try {
+      const data = LeapsomeImport.parse(JSON.parse(await readFile(LEAPSOME_IMPORT_PATH, 'utf8')));
+      goals = normalizeLeapsome(data, syncedAt);
+      const live = goals.filter(g => g.status !== 'archived').length;
+      sourceStatus.push({ type: 'leapsome', ok: true, message: `${live} current goal${live === 1 ? '' : 's'}, ${goals.length - live} from past cycles` });
+    } catch (err) {
+      const missing = (err as NodeJS.ErrnoException).code === 'ENOENT';
+      sourceStatus.push({ type: 'leapsome', ok: false, message: missing ? 'No import yet. Run npm run import:leapsome' : `Import file is invalid: ${(err as Error).message.slice(0, 160)}` });
+    }
+  }
+
   projects = withReferencedProjects(projects, workItems, config, syncedAt);
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
@@ -148,7 +215,7 @@ async function fetchSources(config: Config, syncedAt: string): Promise<EntitySto
     sourceStatus.push({ type: 'google-calendar', ok: false, message: 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set' });
   }
 
-  return EntityStore.parse({ syncedAt, user, projects, workItems, events, activities, sourceStatus });
+  return EntityStore.parse({ syncedAt, user, projects, workItems, events, activities, timeLogs, allocations, leave, requirements, documents, goals, sourceStatus });
 }
 
 /** Each report day's start-of-day and end-of-day stages, from snapshots. */

@@ -104,6 +104,24 @@ window.startThreadline = (initial) => {
     </section>`;
   }
 
+  /** PRD context for a piece of work: status, acceptance criteria, open questions, design. */
+  function prdContext(prds) {
+    if (!prds || !prds.length) return '';
+    return prds.map(p => {
+      const facts = [
+        p.acceptanceTotal ? `${p.acceptanceDone}/${p.acceptanceTotal} acceptance criteria` : null,
+        p.openQuestions.length ? `${p.openQuestions.length} open question${p.openQuestions.length === 1 ? '' : 's'}` : 'No open questions',
+        p.neededDependencies.length ? `${p.neededDependencies.length} dependenc${p.neededDependencies.length === 1 ? 'y' : 'ies'} needed` : null,
+      ].filter(Boolean).join(' · ');
+      return `<div class="prd-context">
+        <div class="prd-head"><span class="kicker" style="margin:0">${esc(p.code || 'PRD')}</span><strong>${esc(p.title)}</strong>${pill(p.status, p.status === 'approved' || p.status === 'implemented' ? 'good' : 'watch')}</div>
+        <p>${esc(facts)}${p.designLinks[0] ? ` · <a href="${esc(p.designLinks[0])}" target="_blank" rel="noopener">Design ↗</a>` : ''}${p.url ? ` · <a href="${esc(p.url)}" target="_blank" rel="noopener">Open in Relay ↗</a>` : ''}</p>
+        ${p.openQuestions.length ? `<details><summary>Open questions</summary><ul>${p.openQuestions.map(q => `<li>${esc(q)}</li>`).join('')}</ul></details>` : ''}
+        ${p.neededDependencies.length ? `<details><summary>Needed dependencies</summary><ul>${p.neededDependencies.map(q => `<li>${esc(q)}</li>`).join('')}</ul></details>` : ''}
+      </div>`;
+    }).join('');
+  }
+
   function focusCard() {
     const f = D.focus;
     if (!f) return `<article class="card focus-card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">◉</span>Current focus</div></div><h2>Nothing needs you right now.</h2><p class="lede">No open work is due soon. Use the time for something you chose.</p></div></article>`;
@@ -111,7 +129,7 @@ window.startThreadline = (initial) => {
     return `<article class="card focus-card"><div class="card-inner">
       <div class="card-header"><div class="card-title"><span class="glyph">◉</span>Current focus</div>${pill(f.status,'blue')}</div>
       <div class="focus-project"><span class="project-avatar">${esc(initials(p.name))}</span><span><strong>${esc(p.name)}</strong><small>${esc(p.description)}</small></span></div>
-      <h2>${esc(f.title)}</h2><p class="lede">${esc(f.description)} ${esc(f.reason)}</p>
+      <h2>${esc(f.title)}</h2><p class="lede">${esc(f.description)} ${esc(f.reason)}</p>${prdContext(f.prds)}
       <div class="focus-metrics">
         <div class="metric"><span class="metric-label">Next action</span><span class="metric-value">${esc(f.nextAction)}</span></div>
         <div class="metric"><span class="metric-label">Estimate</span><span class="metric-value">${esc(f.effort)}</span></div>
@@ -124,23 +142,29 @@ window.startThreadline = (initial) => {
 
   function nextUpCard() {
     return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">↳</span>Next up</div><div class="card-links">${canEdit() ? `<button type="button" class="subtle-link link-button" data-toggle-add>+ Add to-do</button>` : ''}<a class="subtle-link" href="#/todos">To-dos →</a></div></div>${canEdit() ? todoForm(true) : ''}<ol class="next-list">
-      ${D.nextUp.length ? (() => { let n = 0; return D.nextUp.map(x=>`<li class="next-item">${x.todoId && canEdit() ? `<button type="button" class="todo-check" data-todo-done="${esc(x.todoId)}" aria-label="Mark ${esc(x.title)} done"></button>` : `<span class="rank">${++n}</span>`}<div class="next-main"><strong>${x.sourceUrl?`<a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title)}</strong><div class="next-meta"><span>${esc(x.source)}</span>${projectName(x.projectId)?`<span>·</span><span>${esc(projectName(x.projectId))}</span>`:''}</div></div><span class="next-estimate">${esc(x.estimate)}</span></li>`).join(''); })() : empty('Nothing else is queued.')}
+      ${D.nextUp.length ? (() => { let n = 0; return D.nextUp.map(x=>`<li class="next-item">${x.todoId && canEdit() ? `<button type="button" class="todo-check" data-todo-done="${esc(x.todoId)}" aria-label="Mark ${esc(x.title)} done"></button>` : `<span class="rank">${++n}</span>`}<div class="next-main"><strong>${x.sourceUrl?`<a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title)}</strong><div class="next-meta"><span>${esc(x.source)}</span>${x.prd ? `<span>·</span><span title="${esc(x.prd.title)}">${esc(x.prd.code || 'PRD')}${x.prd.openQuestions ? ` · ${x.prd.openQuestions} open Q` : ''}</span>` : ''}${projectName(x.projectId)?`<span>·</span><span>${esc(projectName(x.projectId))}</span>`:''}</div></div><span class="next-estimate">${esc(x.estimate)}</span></li>`).join(''); })() : empty('Nothing else is queued.')}
     </ol></div></article>`;
   }
 
   function todayCard() {
     return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">◫</span>Today</div><span class="subtle-link">${esc(D.daily.capacity.status)} capacity</span></div><ul class="timeline">
       ${D.schedule.length ? '' : empty(D.daily.capacity.status==='Unknown' ? 'No calendar connected.' : 'Nothing on the calendar today.')}${D.schedule.map(x=>`<li class="timeline-item ${x.kind}"><span class="timeline-dot"></span><span class="timeline-time">${esc(x.time)}</span><span class="timeline-copy"><strong>${esc(x.title)}</strong><small>${esc(x.meta)}</small></span></li>`).join('')}
-    </ul><div class="capacity-strip"><div class="capacity-stat"><strong>${D.daily.capacity.focusHours}h</strong><small>Focus time</small></div><div class="capacity-stat"><strong>${D.daily.capacity.meetingsHours}h</strong><small>Meetings</small></div><div class="capacity-stat"><strong>${D.daily.capacity.allocation}%</strong><small>Allocated</small></div></div></div></article>`;
+    </ul><div class="capacity-strip"><div class="capacity-stat"><strong>${D.daily.capacity.focusHours}h</strong><small>Focus time</small></div><div class="capacity-stat"><strong>${D.daily.capacity.meetingsHours}h</strong><small>Meetings</small></div><div class="capacity-stat"><strong>${D.daily.capacity.allocation}%</strong><small>Allocated</small></div></div>${D.daily.week ? `<p class="week-line">This week: ${D.daily.week.logged} of ${D.daily.week.booked} h booked is logged · ${D.daily.week.available} h available</p>` : ''}</div></article>`;
   }
 
   function projectMiniCard(p){
     return `<a class="entity-card" href="#/projects/${p.id}"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center">${pill(p.status,p.status==='On track'?'good':p.status==='Watch'?'watch':'')}<span class="kicker" style="margin:0">${esc(p.due)}</span></div><h3>${esc(p.name)}</h3><p>${esc(p.nextMilestone)}</p>${progress(p.progress)}<div class="entity-footer"><span>${p.progress}% complete</span><span>Open →</span></div></a>`;
   }
 
+  /** Booked projects first, by hours still to go; the rest by the projection's order. */
+  function pulseProjects() {
+    const booked = D.projects.filter(p => p.week).sort((a, b) => b.week.remaining - a.week.remaining);
+    return [...booked, ...D.projects.filter(p => !p.week)].slice(0, 4);
+  }
+
   function homePage(){
     const g = greetingParts();
-    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${D.projects.slice(0,3).map(p=>`<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
+    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
   }
 
   function attentionPage(){
@@ -160,28 +184,85 @@ window.startThreadline = (initial) => {
     return `<div class="page">${pageHeader('Projects','Work with a memory.','Each project holds its current state, goals, decisions, accomplishments, weekly reflection, and durable learnings.',pill(`${D.projects.length} active`,'good'))}<div class="entity-grid">${D.projects.map(projectMiniCard).join('')}</div></div>`;
   }
 
-  function threadsPage(){
-    return `<div class="page">${pageHeader('Threads','Context that survives the gap.','Threads are working contexts, not source-system conversations. They remember intent, notes, open questions, waiting items, and where to restart.',pill(`${D.threads.filter(t=>t.status==='Active').length} active`,'blue'))}<div class="entity-grid">${D.threads.length ? D.threads.map(t=>`<a class="entity-card" href="#/threads/${t.id}">${pill(t.status,t.status==='Active'?'good':'watch')}<h3>${esc(t.title)}</h3><p>${esc(t.objective)}</p><div class="entity-footer"><span>${esc(projectName(t.projectId))} · ${esc(t.updated)}</span><span>Open →</span></div></a>`).join('') : empty('No threads yet. Threads are added in memory/threadline-memory.json for now.')}</div></div>`;
+  const THREAD_GROUPS = [['Needs you', ['Active']], ['Waiting on others', ['Waiting', 'Handed off']], ['Done', ['Done']]];
+
+  function threadCard(t) {
+    const meta = [projectName(t.projectId), t.stage, t.updated].filter(Boolean).join(' · ');
+    return `<a class="entity-card thread-card" href="#/threads/${encodeURIComponent(t.id)}">${pill(t.status, t.status === 'Active' ? 'good' : t.status === 'Done' ? '' : 'watch')}<h3>${esc(t.title)}</h3><p>${esc(t.nextAction)}</p><div class="entity-footer"><span>${esc(meta)}</span><span>Open →</span></div></a>`;
   }
+
+  function threadsPage(){
+    const head = pageHeader('Threads', 'Context that survives the gap.', 'Each piece of work you touched recently, followed across Teamwork, GitHub, and Relay. Where you left off, what changed, and what happens next.', pill(`${D.threads.filter(t => t.status === 'Active').length} need you`, 'blue'));
+    if (!D.threads.length) return `<div class="page">${head}${empty('No threads yet. They appear once you work on tasks in Teamwork.')}</div>`;
+    const groups = THREAD_GROUPS.map(([label, statuses]) => {
+      const list = D.threads.filter(t => statuses.includes(t.status));
+      return list.length ? `<section class="thread-group"><h2>${esc(label)} <span class="kicker" style="margin:0">${list.length}</span></h2><div class="entity-grid">${list.map(threadCard).join('')}</div></section>` : '';
+    }).join('');
+    const other = D.threads.filter(t => !THREAD_GROUPS.some(([, s]) => s.includes(t.status)));
+    return `<div class="page">${head}${groups}${other.length ? `<div class="entity-grid">${other.map(threadCard).join('')}</div>` : ''}</div>`;
+  }
+
+  const TIMELINE_KIND = { comment: 'Commented', stage: 'Moved', completed: 'Completed', reopened: 'Reopened', merged: 'Merged', todo_done: 'To-do done' };
 
   function continuityCard(c){
     return `<div class="continuity-card"><span class="kicker">Continuity snapshot</span><h3>Pick up without reconstructing.</h3><p><strong>Where you were:</strong> ${esc(c.whereYouWere || c.lastAction || '')}</p>${c.changedSince?`<ul>${c.changedSince.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}<p style="margin-top:14px"><strong>Restart:</strong> ${esc(c.restart)}</p></div>`;
   }
 
   function threadDetailPage(t){
-    const p=project(t.projectId) || { id: '', name: 'No project' };
-    const overview = `<section class="content-section"><h2>Working state</h2><div class="info-grid"><div class="info-tile"><span>Objective</span><strong>${esc(t.objective)}</strong></div><div class="info-tile"><span>Next action</span><strong>${esc(t.nextAction)}</strong></div><div class="info-tile"><span>Open questions</span><strong>${esc(t.openQuestions.join(' · ')||'None')}</strong></div><div class="info-tile"><span>Waiting on</span><strong>${esc(t.waitingOn.join(' · ')||'Nothing')}</strong></div></div></section>
-      <section class="content-section"><h2>Notes</h2><div class="note-list">${t.notes.map(n=>`<div class="note"><time>${esc(n.at)}</time><p>${esc(n.body)}</p></div>`).join('')}</div><div class="note-composer"><input id="new-note" placeholder="Add working note…"/><button class="secondary-button" id="add-note">Add note</button></div></section>`;
-    const context = `<section class="content-section"><h2>Linked context</h2>${t.linked.map(x=>`<div class="list-row"><div><strong>${esc(x)}</strong><p>Source context retained behind the thread.</p></div><span class="pill">Linked</span></div>`).join('')}</section><section class="content-section"><h2>Open questions</h2>${t.openQuestions.map(x=>`<div class="list-row"><strong>${esc(x)}</strong><span class="pill watch">Unresolved</span></div>`).join('')}</section>`;
-    const learn = `<section class="content-section"><h2>Candidate learnings</h2><p>Threadline can suggest these from the work history. Promote only what is worth retaining.</p>${t.candidateLearnings.map(x=>`<div class="list-row"><div><strong>${esc(x)}</strong><p>Suggested from notes, decisions, and work history.</p></div><button class="secondary-button">Promote to knowledge</button></div>`).join('')}</section><section class="content-section"><h2>Close task</h2><p>Closing work should retain the outcome, accomplishment, decision, learning, and any follow-up that matters.</p><button class="primary-button">Review completion memory →</button></section>`;
-    const body = activeDetailTab==='context'?context:activeDetailTab==='learning'?learn:overview;
-    return `<div class="page"><a class="back-link" href="#/threads">← All threads</a><div class="detail-shell"><div class="detail-main"><header class="detail-hero"><span class="kicker">${esc(p.name)} · ${esc(t.status)}</span><h1>${esc(t.title)}</h1><p>${esc(t.objective)}</p></header><nav class="detail-tabs"><button class="detail-tab ${activeDetailTab==='overview'?'active':''}" data-tab="overview">Work state</button><button class="detail-tab ${activeDetailTab==='context'?'active':''}" data-tab="context">Context</button><button class="detail-tab ${activeDetailTab==='learning'?'active':''}" data-tab="learning">Learning + close</button></nav>${body}</div><aside class="detail-aside">${continuityCard(t.continuity)}<div class="mini-card"><h3>Source links</h3><ul class="mini-list">${t.linked.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div><div class="mini-card"><h3>Project</h3><p><a href="#/projects/${p.id}">${esc(p.name)} →</a></p></div></aside></div></div>`;
+    const p = project(t.projectId) || { id: '', name: 'No project' };
+    const editable = canEdit() && t.id.startsWith('thread-');
+    const links = t.links || t.linked.map(label => ({ label, url: '', kind: 'other', state: null }));
+    const notes = `<section class="content-section"><h2>Notes</h2><p>Your working notes. They stay in Threadline.</p>
+      <div class="note-list">${t.notes.length ? t.notes.map(n => `<div class="note"><time>${esc(n.at)}</time><p>${esc(n.body)}</p>${editable ? `<button type="button" class="todo-delete" data-note-delete="${esc(n.id)}" aria-label="Delete note">×</button>` : ''}</div>`).join('') : '<p class="settings-hint">No notes yet.</p>'}</div>
+      <form class="note-composer" data-note-form><input id="new-note" placeholder="What should future you know? e.g. Waiting on Dana before merging" autocomplete="off" /><button class="secondary-button" id="add-note">Add note</button></form></section>`;
+    const overview = `<section class="content-section"><h2>Working state</h2><div class="info-grid">
+        <div class="info-tile"><span>Next action</span><strong>${esc(t.nextAction)}</strong></div>
+        <div class="info-tile"><span>Waiting on</span><strong>${esc(t.waitingOn.join(' · ') || 'Nothing')}</strong></div>
+        <div class="info-tile"><span>Stage</span><strong>${esc(t.stage || t.status)}</strong></div>
+        <div class="info-tile"><span>Time logged</span><strong>${t.hours != null ? `${t.hours} h this week` : '—'}</strong></div>
+      </div>${t.prds && t.prds.length ? prdContext(t.prds) : t.openQuestions.length ? `<div class="info-tile" style="margin-top:12px"><span>Open questions</span><strong>${esc(t.openQuestions.join(' · '))}</strong></div>` : ''}</section>${notes}`;
+    const timeline = t.timeline && t.timeline.length ? `<section class="content-section"><h2>Timeline</h2><ul class="record-list">${t.timeline.map(e => `<li><time>${esc(e.date.slice(5).replace('-', '/'))}</time><span class="record-kind">${esc(TIMELINE_KIND[e.kind] || e.kind)}</span><div>${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.text)}</a>` : esc(e.text)}</div></li>`).join('')}</ul></section>` : '';
+    const context = `<section class="content-section"><h2>Linked context</h2>${links.map(l => `<div class="list-row"><div><strong>${l.url ? `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>` : esc(l.label)}</strong></div>${l.state ? pill(l.state, /merged|approved|implemented/.test(l.state) ? 'good' : /changes|failing/.test(l.state) ? 'accent' : 'watch') : ''}</div>`).join('') || '<p>No linked records.</p>'}</section>${timeline}`;
+    const hasLearning = t.candidateLearnings && t.candidateLearnings.length;
+    const learn = `<section class="content-section"><h2>Candidate learnings</h2>${t.candidateLearnings.map(x => `<div class="list-row"><strong>${esc(x)}</strong></div>`).join('')}</section>`;
+    if (activeDetailTab === 'learning' && !hasLearning) activeDetailTab = 'overview';
+    const body = activeDetailTab === 'context' ? context : activeDetailTab === 'learning' ? learn : overview;
+    const tab = (id, label) => `<button class="detail-tab ${activeDetailTab === id ? 'active' : ''}" data-tab="${id}">${label}</button>`;
+    const sourceLinks = links.filter(l => l.url).slice(0, 6);
+    return `<div class="page"><a class="back-link" href="#/threads">← All threads</a><div class="detail-shell"><div class="detail-main">
+      <header class="detail-hero"><span class="kicker">${esc(p.name)} · ${esc(t.status)}${t.stage ? ` · ${esc(t.stage)}` : ''}</span><h1>${esc(t.title)}</h1>${t.objective ? `<p>${esc(t.objective)}</p>` : ''}</header>
+      <nav class="detail-tabs">${tab('overview', 'Work state')}${tab('context', 'Links + timeline')}${hasLearning ? tab('learning', 'Learnings') : ''}</nav>${body}</div>
+      <aside class="detail-aside">${continuityCard(t.continuity)}
+        ${sourceLinks.length ? `<div class="mini-card"><h3>Open</h3><ul class="mini-list">${sourceLinks.map(l => `<li><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a></li>`).join('')}</ul></div>` : ''}
+        ${p.id ? `<div class="mini-card"><h3>Project</h3><p><a href="#/projects/${p.id}">${esc(p.name)} →</a></p></div>` : ''}</aside></div></div>`;
+  }
+
+
+  const RECORD_KIND = { completed: 'Completed', reopened: 'Reopened', stage: 'Moved', comment: 'Commented', todo_done: 'To-do done' };
+
+  function workRecord(p) {
+    if (!p.record || !p.record.length) return '';
+    return `<section class="content-section"><h2>Work record</h2><p>Your recent activity on this project, kept in the work journal.</p>
+      <ul class="record-list">${p.record.map(r => `<li><time>${esc(r.date.slice(5).replace('-', '/'))}</time><span class="record-kind">${esc(RECORD_KIND[r.kind] || r.kind)}</span><div><strong>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)}</strong>${r.detail ? `<p>${esc(r.detail)}</p>` : ''}</div></li>`).join('')}</ul></section>`;
+  }
+
+  function knowledgeBaseSection(p) {
+    const kb = p.knowledgeBase;
+    if (!kb) return '';
+    const count = (k, label) => kb.counts[k] ? `${kb.counts[k]} ${label}${kb.counts[k] === 1 ? '' : 's'}` : null;
+    const summary = [count('prd', 'PRD'), count('epic', 'epic'), count('notebook', 'notebook page')].filter(Boolean).join(' · ');
+    const links = kb.spaces.map(s => `<a class="secondary-button" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)} ↗</a>`).join('');
+    return `<section class="content-section"><h2>Knowledge base</h2><p>${esc(summary)} in Relay Cloud. Read-only here.</p><div class="kb-links">${links}</div>
+      ${kb.active.length ? `<h3 class="kb-heading">PRDs in play</h3>${kb.active.map(r => `<div class="list-row"><div><strong>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc([r.code, r.title].filter(Boolean).join(' · '))}</a>` : esc(r.title)}</strong><p>${esc([r.linked ? 'Linked to your work' : null, r.openQuestions ? `${r.openQuestions} open question${r.openQuestions === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ') || ' ')}</p></div>${pill(r.status, r.status === 'approved' || r.status === 'implemented' ? 'good' : 'watch')}</div>`).join('')}` : ''}
+      ${kb.implemented ? `<p class="settings-hint">${kb.implemented} more PRD${kb.implemented === 1 ? ' is' : 's are'} implemented.</p>` : ''}
+      ${kb.notebooks.length ? `<h3 class="kb-heading">Recent notebook pages</h3>${kb.notebooks.map(n => `<div class="list-row"><strong>${n.url ? `<a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)}</a>` : esc(n.title)}</strong><span class="kicker" style="margin:0">${esc(n.updatedAt)}</span></div>`).join('')}` : ''}
+    </section>`;
   }
 
   function projectDetailPage(p){
     return `<div class="page"><a class="back-link" href="#/projects">← All projects</a><div class="detail-shell"><div class="detail-main"><header class="detail-hero"><span class="kicker">Project · ${esc(p.status)} · ${p.progress}%</span><h1>${esc(p.name)}</h1><p>${esc(p.objective)}</p></header>
       <section class="content-section"><h2>Current state</h2><div class="info-grid"><div class="info-tile"><span>Your role</span><strong>${esc(p.role)}</strong></div><div class="info-tile"><span>Next milestone</span><strong>${esc(p.nextMilestone)}</strong></div><div class="info-tile"><span>Due</span><strong>${esc(p.due)}</strong></div><div class="info-tile"><span>Progress</span><strong>${p.progress}% complete</strong></div></div></section>
-      <section class="content-section"><h2>This week</h2>${weeklyCard(p.weekly)}</section>
+      <section class="content-section"><h2>This week</h2>${weeklyCard(p.weekly)}</section>${workRecord(p)}${knowledgeBaseSection(p)}
       <section class="content-section"><h2>Accomplishments</h2>${p.accomplishments.length ? p.accomplishments.map(x=>`<div class="list-row"><strong>${esc(x)}</strong>${pill('Evidence','good')}</div>`).join('') : '<p>No accomplishments retained yet.</p>'}</section>
       <section class="content-section"><h2>Decisions</h2>${p.decisions.length?p.decisions.map(d=>`<div class="list-row"><div><strong>${esc(d.title)}</strong><p>${esc(d.rationale)}</p></div><span class="kicker" style="margin:0">${esc(d.date)}</span></div>`).join(''):'<p>No durable decisions recorded yet.</p>'}</section>
       <section class="content-section"><h2>Project learnings</h2>${p.learnings.length ? '' : '<p>No learnings retained yet.</p>'}${p.learnings.map(l=>`<div class="list-row"><div><strong>${esc(l.title)}</strong><p>${esc(l.detail)}</p></div>${pill(l.type,l.reusable?'good':'')}</div>`).join('')}</section>
@@ -198,7 +279,7 @@ window.startThreadline = (initial) => {
   }
 
   function goalDetailPage(g){
-    return `<div class="page"><a class="back-link" href="#/goals">← All goals</a><div class="detail-shell"><div class="detail-main"><header class="detail-hero"><span class="kicker">${esc(g.type)} goal · ${esc(g.status)}</span><h1>${esc(g.title)}</h1><p>${esc(g.target)}</p></header><section class="content-section"><h2>Measurement</h2><div class="info-grid"><div class="info-tile"><span>Measure</span><strong>${esc(g.measure)}</strong></div><div class="info-tile"><span>Current</span><strong>${esc(g.current)}</strong></div><div class="info-tile"><span>Due</span><strong>${esc(g.due)}</strong></div><div class="info-tile"><span>Progress</span><strong>${g.progress}%</strong></div></div></section><section class="content-section"><h2>Evidence</h2>${g.evidence.map(e=>`<div class="list-row"><div><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div>${pill(e.strength,e.strength==='Strong'?'good':'watch')}</div>`).join('')}</section><section class="content-section"><h2>Linked projects</h2>${g.linkedProjects.filter(project).map(id=>`<div class="list-row"><strong>${esc(project(id).name)}</strong><a class="subtle-link" href="#/projects/${id}">Open project →</a></div>`).join('')}</section></div><aside class="detail-aside"><div class="mini-card"><h3>Goal risk</h3><p>${esc(g.risk)}</p></div><div class="mini-card"><h3>Threadline behavior</h3><p>Project accomplishments and retained evidence can advance this goal automatically after confirmation.</p></div></aside></div></div>`;
+    return `<div class="page"><a class="back-link" href="#/goals">← All goals</a><div class="detail-shell"><div class="detail-main"><header class="detail-hero"><span class="kicker">${esc(g.type)} goal · ${esc(g.status)}</span><h1>${esc(g.title)}</h1><p>${esc(g.target)}</p></header><section class="content-section"><h2>Measurement</h2><div class="info-grid"><div class="info-tile"><span>Measure</span><strong>${esc(g.measure)}</strong></div><div class="info-tile"><span>Current</span><strong>${esc(g.current)}</strong></div><div class="info-tile"><span>Due</span><strong>${esc(g.due)}</strong></div><div class="info-tile"><span>Progress</span><strong>${g.progress}%</strong></div></div></section><section class="content-section"><h2>${g.type && g.type.includes('Leapsome') ? 'Key results' : 'Evidence'}</h2>${g.evidence.map(e=>`<div class="list-row"><div><strong>${esc(e.title)}</strong><p>${esc(e.detail)}</p></div>${pill(e.strength,e.strength==='Strong'?'good':'watch')}</div>`).join('')}</section>${g.linkedProjects.filter(project).length ? `<section class="content-section"><h2>Linked projects</h2>${g.linkedProjects.filter(project).map(id=>`<div class="list-row"><strong>${esc(project(id).name)}</strong><a class="subtle-link" href="#/projects/${id}">Open project →</a></div>`).join('')}</section>` : ''}</div><aside class="detail-aside"><div class="mini-card"><h3>Goal risk</h3><p>${esc(g.risk)}</p></div>${g.sourceUrl ? `<div class="mini-card"><h3>Source</h3><p>${sourceLink(g.sourceUrl, 'Open in Leapsome')}</p></div>` : ''}<div class="mini-card"><h3>Threadline behavior</h3><p>Project accomplishments and retained evidence can advance this goal automatically after confirmation.</p></div></aside></div></div>`;
   }
 
   function knowledgePage(){
@@ -382,7 +463,7 @@ window.startThreadline = (initial) => {
     if(path==='/') app.innerHTML=homePage();
     else if(path==='/attention') app.innerHTML=attentionPage();
     else if(path==='/threads') app.innerHTML=threadsPage();
-    else if(parts[0]==='threads'&&parts[1]) { const t=thread(parts[1]); app.innerHTML=t?threadDetailPage(t):notFound(); }
+    else if(parts[0]==='threads'&&parts[1]) { const t=thread(decodeURIComponent(parts[1])); app.innerHTML=t?threadDetailPage(t):notFound(); }
     else if(path==='/projects') app.innerHTML=projectsPage();
     else if(parts[0]==='projects'&&parts[1]) { const p=project(parts[1]); app.innerHTML=p?projectDetailPage(p):notFound(); }
     else if(path==='/goals') app.innerHTML=goalsPage();
@@ -395,6 +476,8 @@ window.startThreadline = (initial) => {
     else app.innerHTML=notFound();
     bindPageEvents();
     if(!keepScroll) window.scrollTo({top:0,behavior:'instant'});
+    // In-place updates (new data, a saved note) should not replay the page's entrance animation.
+    else if (app.firstElementChild) app.firstElementChild.style.animation = 'none';
   }
 
   function bindPageEvents(){
@@ -457,8 +540,24 @@ window.startThreadline = (initial) => {
       flash(b, await copyReport(p.text, reportHtml([p]).replace(`<b>${esc(p.name)}</b>`, `<b>${esc(heading)}</b>`)));
     }));
     document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{activeDetailTab=btn.dataset.tab;route();}));
-    const addNote=document.getElementById('add-note');
-    if(addNote) addNote.addEventListener('click',()=>{const input=document.getElementById('new-note');if(!input.value.trim())return; const path=location.hash.split('/'); const t=thread(path[path.length-1]); t.notes.push({id:`note-${Date.now()}`,at:'Just now',body:input.value.trim()}); input.value=''; route();});
+    document.querySelector('[data-note-form]')?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const input = document.getElementById('new-note');
+      const body = input.value.trim();
+      if (!body) return;
+      const id = decodeURIComponent(location.hash.split('/').pop());
+      const t = thread(id);
+      if (canEdit() && id.startsWith('thread-')) {
+        try { await window.threadlineApi(`/api/threads/${encodeURIComponent(id)}/notes`, 'POST', { body }); input.value = ''; input.blur(); }
+        catch (err) { alert(`Threadline: ${err.message}`); }
+      } else if (t) {
+        t.notes.push({ id: `note-${Date.now()}`, at: 'Just now', body }); input.value = ''; route(true);
+      }
+    });
+    document.querySelectorAll('[data-note-delete]').forEach(b => b.addEventListener('click', () => {
+      const id = decodeURIComponent(location.hash.split('/').pop());
+      if (confirm('Delete this note?')) window.threadlineApi(`/api/threads/${encodeURIComponent(id)}/notes/${b.dataset.noteDelete}`, 'DELETE', {}).catch(err => alert(`Threadline: ${err.message}`));
+    }));
     document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',()=>document.querySelector('.sidebar').classList.remove('open')));
   }
 

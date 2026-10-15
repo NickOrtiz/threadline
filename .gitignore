@@ -9,3 +9,5 @@ threadline.config.json
 memory/threadline-memory.json
 data/
 memory/todos.json
+memory/journal/
+memory/notes.json

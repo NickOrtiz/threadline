@@ -2,6 +2,8 @@
 
 Threadline is a calm work dashboard. It reads from the tools where work happens and shows what matters now.
 
+Threadline is read-only toward every source. It reads, links, and points back. It never changes anything in Teamwork, GitHub, Calendar, Malcolm, Leapsome, or Relay Cloud. What you confirm in Threadline, such as to-dos and the work journal, stays in Threadline's local storage.
+
 This prototype has two parts:
 
 - A static UI (`index.html`, `app.js`, `styles.css`) with no build step.
@@ -87,6 +89,8 @@ Both copies are git-ignored, so your secrets and your project names stay out of 
 | `TEAMWORK_API_KEY` | Teamwork | You want Teamwork tasks and projects. |
 | `GOOGLE_CLIENT_ID` | Google Calendar | You want the calendar. |
 | `GOOGLE_CLIENT_SECRET` | Google Calendar | You want the calendar. |
+| `RELAY_API_KEY` | Relay Cloud | You want PRD context on your tasks. |
+| `MALCOLM_EMAIL` | Malcolm | Optional. Used when `malcolm.email` is not set in the config. |
 | Any name you choose, such as `GITHUB_TOKEN_CLIENT` | GitHub | A `codeHosts` connection uses `"auth": { "env": "<name>" }`. |
 
 If a variable is missing, the sync skips that source and says so. It does not fail.
@@ -219,6 +223,77 @@ Add one entry to `codeHosts` for each account. For GitHub Enterprise, set `host`
 | Your PR or review idle for 30 days or more | Treated as abandoned | No signal. |
 | An issue assigned to you | A work item. Its due date is the milestone's due date. | Same rules as tasks. |
 
+### Connect Relay Cloud
+
+Relay Cloud holds the project's PRDs. Threadline links each task to the PRD written for it and shows that PRD's status, acceptance criteria, open questions, needed dependencies, and design link on the focus card.
+
+1. Create a Relay API key in Relay Cloud.
+2. Add it to `.env` as `RELAY_API_KEY`.
+3. Set your Relay Cloud endpoint and link patterns, and map Threadline projects to Relay project slugs, in `threadline.config.json`:
+
+   ```json
+   "relay": {
+     "url": "https://relay.example.com/api/mcp",
+     "projectUrl": "https://relay.example.com/projects/{project}",
+     "documentUrl": "https://relay.example.com/projects/{project}/docs/{path}",
+     "projects": { "northwind": ["northwind-site"], "juniper": ["juniper-redesign", "juniper"] }
+   }
+   ```
+
+   A project can map to several slugs, such as a redesign and its parent project.
+4. Run `npm run sync`.
+
+Threadline calls the Relay Cloud MCP server at `relay.url` directly, with the API key as a bearer token. It does not need Claude. It reads only the PRDs whose content changed since the last sync, and keeps the rest in `data/relay-cache.json`.
+
+**How tasks link to PRDs**, in order:
+
+1. A Teamwork task URL inside the PRD. Relay PRDs record the task they were written for in their Implementation History. URLs in the Dependencies table are skipped, because they name related tasks.
+2. A PRD code such as `PRD-03.2.01` in the task title.
+
+**The rule it adds:** work that is in progress, or due within 5 days, whose PRD still has open questions raises a NEXT item, "Footer: 4 open product questions". Building before those answers risks rework.
+
+### Connect Malcolm
+
+Malcolm holds your project bookings (allocations) and your leave. Threadline compares this week's booked hours per project with the hours you logged in Teamwork.
+
+Malcolm has no personal API token yet. Until it does, Threadline asks Claude Code to read Malcolm through the Malcolm connector:
+
+1. Make sure the `claude` CLI is installed and logged in, and that the Malcolm connector works in Claude.
+2. In `threadline.config.json`, set `malcolm.enabled` to `true` and `malcolm.email` to your Malcolm login.
+3. Run `npm run import:malcolm`. It takes about 20 seconds and costs one or two cents with the default Haiku model.
+4. Run `npm run sync`.
+
+`npm start` repeats the import when it is older than `malcolm.maxAgeHours`, 12 by default.
+
+The import is strict about its output. Claude must return JSON that matches a fixed schema, and Threadline validates that JSON again before saving it to `data/imports/malcolm.json`. The file records which model produced it. When Malcolm offers an API token, an adapter can replace the import without changing anything downstream.
+
+**What it adds:**
+
+| Signal | Level |
+| --- | --- |
+| A project is behind its booked pace this week, such as "13.5 h of this week's booking left" | WATCH. NEXT when 2 or fewer working days are left and 4 h or more remain. It names the project manager. |
+| A project is booked, but nothing open is assigned to you | WATCH. "Ask what to pick up." |
+| You logged more than a project's booking | WATCH. |
+| Your bookings add up to more than your working hours | WATCH. |
+
+Ranking also shifts a little. When due dates tie, tasks on projects behind pace move up, and tasks on projects at or over their booking move down. Leave from Malcolm counts as a day off, the same as an all-day out-of-office event.
+
+Logged hours come from Teamwork time logs, with your existing Teamwork token, so they stay current between Malcolm imports.
+
+### Connect Leapsome
+
+Leapsome holds your goals and key results. Threadline shows them on the **Goals** page, current cycle first, then past cycles as history.
+
+Leapsome has no personal API token, so the import works like Malcolm's:
+
+1. In Claude Code, run `/mcp` and connect **claude.ai Leapsome**.
+2. Set `leapsome.enabled` to `true` in `threadline.config.json`.
+3. Run `npm run import:leapsome`, then `npm run sync`. `npm start` repeats the import once a day.
+
+Each goal shows its key results with their progress. The "Open in Leapsome" link goes to the Leapsome goals page, because Leapsome records carry no link to a single goal.
+
+Both Claude-run imports share one helper, `src/adapters/claude-import.ts`. It gives Claude only the named read tools, asks for JSON that matches a fixed schema, and validates the result again with Zod.
+
 ### GitLab and other hosts
 
 GitLab is not supported yet. The config and schema are ready for it. A GitLab connection will be another `codeHosts` entry with `"type": "gitlab"`. It will use the same `repos` allowlist and the same code review fields, so the attention rules will work unchanged. Until then, GitLab work shows up only through its Teamwork tasks.
@@ -250,6 +325,18 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | `calendar.lookaheadDays` | `7` | How many days ahead to read. |
 | `server.port` | `8080` | Port for `npm start` and `npm run serve`. The `PORT` environment variable overrides it. |
 | `server.syncIntervalMinutes` | `15` | How often `npm start` syncs. |
+| `relay.url` | — | The Relay Cloud MCP endpoint. Required to sync PRDs. |
+| `relay.projects` | `{}` | Threadline project id → Relay project slugs. |
+| `relay.projectUrl` | — | Link to a Relay project. `{project}` is the slug. |
+| `relay.documentUrl` | — | Link to one Relay document. Unset links documents to their project. |
+| `malcolm.enabled` | `false` | Turn the Malcolm import on. |
+| `malcolm.email` | — | Your Malcolm login email. |
+| `malcolm.maxAgeHours` | `12` | `npm start` re-imports when the last import is older. |
+| `malcolm.model` | `haiku` | The Claude model that runs the import. |
+| `leapsome.enabled` | `false` | Turn the Leapsome goal import on. |
+| `leapsome.includeArchived` | `true` | Include goals from past cycles. |
+| `leapsome.maxAgeHours` | `24` | `npm start` re-imports when the last import is older. |
+| `leapsome.model` | `haiku` | The Claude model that runs the import. |
 | `report.days` | `7` | How many days the Report page covers, today included. |
 | `continuity.awayHours` | `8` | How long a gap must be before "while you were away" appears. |
 | `codeHosts[]` | `[]` | GitHub connections. See [Connect GitHub](#connect-github). |
@@ -263,6 +350,8 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | `npm start` | Serves the UI at `http://localhost:8080`, syncs at start, then syncs every `server.syncIntervalMinutes`. Open pages update in place. |
 | `npm run sync -- --rebuild` | Rebuilds `data/state.json` from the last sync plus your to-dos, without fetching. The server runs this after every to-do change. |
 | `npm run sync` | Fetches every configured source, then writes `data/state.json` for the UI and `data/entities.json` for debugging. It prints one line per source and the repos it ignored. It exits with an error only when no source succeeds. |
+| `npm run import:malcolm` | Reads your Malcolm bookings and leave through Claude Code and saves them to `data/imports/malcolm.json`. |
+| `npm run import:leapsome` | Reads your Leapsome goals through Claude Code and saves them to `data/imports/leapsome.json`. |
 | `npm run auth:google` | One-time Google sign-in. Run it again if Google says the token expired or was revoked. |
 | `npm run serve` | Serves the UI without automatic sync. |
 | `npm run check` | Validates the config, every fixture, the memory file, and the last sync output against the schema. |
@@ -296,6 +385,63 @@ Some work has no ticket: updating a local toolchain, rebuilding a database, a fo
 - Check one off in Next up, in the focus card, or on the To-dos page. Done to-dos stay on the To-dos page for 7 days, and they count toward the project's weekly wins.
 
 To-dos live in `memory/todos.json`, which is git-ignored. Adding and editing needs `npm start`, because the page saves through the local server. With a fixture or a static server, the To-dos page is read-only.
+
+## Work journal
+
+Sources keep only recent history: 7 days of activity and 30 days of completions. The work journal keeps it permanently, so accomplishments, reflections, and goal evidence have a record to stand on.
+
+On each sync, Threadline appends what you did to `memory/journal/YYYY-MM.jsonl`, one JSON line per entry:
+
+| Entry | From |
+| --- | --- |
+| Comment | Your Teamwork comments, as a short note with the PR number when one is linked |
+| Completed, reopened | Your Teamwork activity |
+| Moved | A board stage change since the previous sync, such as "In Progress → In Review" |
+| To-do done | Your Threadline to-dos |
+| Time | Hours per project per day, written only once the day is over |
+
+Each entry keeps a stable id from its source event, so a sync never writes the same entry twice. Entries are never edited or removed. The journal is git-ignored.
+
+Each project page shows its recent entries under **Work record**.
+
+## Knowledge base
+
+Relay Cloud is the team's knowledge base for tickets. Each project page shows a read-only **Knowledge base** section for the project's Relay spaces:
+
+- Document counts: PRDs, epics, and notebook pages.
+- **PRDs in play:** drafts, approved PRDs, and any PRD linked to your work, with open questions.
+- **Recent notebook pages**, such as decision logs and meeting notes.
+- Links into Relay Cloud for each space and document.
+
+Threadline indexes titles and statuses, and reads PRD bodies only to show acceptance criteria and open questions. It does not copy Relay content into its own memory, and it never writes to Relay.
+
+Each document links straight to its page in Relay Cloud through `relay.documentUrl`, such as `https://relay.example.com/projects/{project}/docs/{path}`. `{path}` is the file path inside `requirements/`, without `/index.md` or `.md`. Without `relay.documentUrl`, documents link to their project page, and without `relay.projectUrl` there are no links.
+
+## Threads
+
+A thread is one piece of work followed across systems. The Threads page builds one for each Teamwork task you worked on in the last 21 days, and for each open pull request of yours that no task mentions. There is nothing to set up.
+
+Each thread links:
+
+- The Teamwork task and its board stage.
+- Pull requests named in your comments, either as a full GitHub URL or as `owner/repo#123`, or titled exactly like the task. Each shows its current state: waiting for review, changes requested, approved, merged, or closed.
+- The PRD linked to the task, with its open questions and design links.
+- Hours you logged on the task this week.
+
+From those, the thread works out:
+
+| Field | How |
+| --- | --- |
+| Where you left off | Your last comment, plus the current stage |
+| What changed since | Stage moves and pull request reviews after your last comment |
+| Waiting on | A review stage, a pull request review, or the people the task was handed to |
+| Next step | Requested changes, failing checks, feedback to answer, or an approved PR to merge. Otherwise "nothing for you" while it waits. |
+
+Threads are grouped into **Needs you**, **Waiting on others**, and **Done**. A thread needs you whenever something on it is yours to act on, whatever the board stage says.
+
+One rule raises a WATCH item: when every pull request on a task is merged but the task still sits in a review stage, the board no longer matches the work.
+
+**Notes.** Each thread has working notes for what future you should know. They are saved in `memory/notes.json`, which is git-ignored, and they never leave Threadline.
 
 ## Daily report
 
@@ -379,6 +525,9 @@ Automatic sync only runs while `npm start` is running in a terminal. A macOS bac
 | `threadline.config.json` | Your settings, project names, and repo mapping | No |
 | `memory/threadline-memory.json` | Threads, goals, knowledge, and project context you write by hand | No |
 | `memory/todos.json` | Your to-dos | No |
+| `memory/journal/` | Your permanent work journal | No |
+| `memory/notes.json` | Your notes on threads | No |
+| `data/imports/`, `data/relay-cache.json` | Malcolm and Leapsome imports, cached PRDs | No |
 | `data/snapshots/`, `data/activity.json` | Sync history and your dashboard sessions, for "while you were away" | No |
 | `threadline.config.example.json` | Example settings with dummy values | Yes |
 | `memory/threadline-memory.example.json` | Example memory with dummy values | Yes |
@@ -464,6 +613,14 @@ There are two layers.
 | v0.5 | Entity | Added `WorkItem.stage`, the source's board column or workflow stage, and `WorkItem.needsResponse`. Teamwork sets status from the stage. Snapshots record the stage, so stage moves appear in "while you were away". |
 | v0.6 | Entity | Added the `Activity` entity (your comments, updates, and completions) and `EntityStore.activities`. Added `WorkItem.mine`: false for work you touched that is no longer assigned to you. Only your own work ranks, counts toward capacity, or enters snapshots. |
 | v0.6 | View | Added `reports[]`: per-day, per-project status lines with Slack-formatted text. |
+| v0.7 | Entity | Added `Allocation`, `Leave`, `TimeLog`, and `Requirement` entities, and `WorkItem.prdIds`. Added `malcolm` and `relay` to `SourceType`. |
+| v0.7 | View | Added `focus.prds[]`, `nextUp[].prd`, `projects[].week`, and `daily.week`. |
+| v0.8 | Entity | Added `KnowledgeDocument` (metadata for knowledge base pages) and `EntityStore.documents`. PRD `source.url` now links into Relay Cloud. |
+| v0.8 | View | Added `projects[].knowledgeBase`, `projects[].record`, and `prds[].url`. |
+| v0.9 | Entity | `Goal` now carries `status`, `progress`, `cycle`, `keyResults`, `manager`, and `source`, and `EntityStore.goals` holds imported goals. Added `leapsome` to `SourceType`. |
+| v0.9 | View | Added `goals[].sourceUrl`. |
+| v0.10 | Entity | Added `Activity.links` (pull request URLs found in comments), `JournalEntry.links`, and the `merged` journal kind. `CodeReviewState.state` gains `merged` and `closed`. |
+| v0.10 | View | Threads are derived from your work. `threads[]` gains `stage`, `links`, `timeline`, `hours`, `prds`, and `sourceUrl`. |
 
 All view additions are optional, so older fixtures stay valid.
 

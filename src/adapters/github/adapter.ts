@@ -18,6 +18,9 @@ export interface GithubPullRequest {
   createdAt: string;
   updatedAt: string;
   reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null;
+  state: 'OPEN' | 'MERGED' | 'CLOSED';
+  mergedAt: string | null;
+  closedAt: string | null;
   repository: { nameWithOwner: string };
   latestReviews: { nodes: { state: string; submittedAt: string | null }[] };
   commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
@@ -51,7 +54,7 @@ query($authored: String!, $review: String!, $issues: String!) {
   }
 }
 fragment PR on PullRequest {
-  number title url isDraft createdAt updatedAt reviewDecision
+  number title url isDraft createdAt updatedAt reviewDecision state mergedAt closedAt
   repository { nameWithOwner }
   latestReviews(first: 10) { nodes { state submittedAt } }
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
@@ -75,7 +78,8 @@ export class GithubAdapter {
       body: JSON.stringify({
         query: QUERY,
         variables: {
-          authored: 'is:open is:pr author:@me archived:false',
+          // Open PRs, plus any closed or merged in the last 14 days, so threads can show them.
+          authored: `is:pr author:@me archived:false updated:>=${new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10)}`,
           review: 'is:open is:pr review-requested:@me archived:false',
           issues: 'is:open is:issue assignee:@me archived:false',
         },

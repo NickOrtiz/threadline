@@ -60,5 +60,30 @@
   "server": {
     "port": 8080,
     "syncIntervalMinutes": 15
+  },
+  "relay": {
+    "url": "https://relay.example.com/api/mcp",
+    "projects": {
+      "northwind": [
+        "northwind-site"
+      ],
+      "juniper": [
+        "juniper-redesign"
+      ]
+    },
+    "projectUrl": "https://relay.example.com/projects/{project}",
+    "documentUrl": "https://relay.example.com/projects/{project}/docs/{path}"
+  },
+  "malcolm": {
+    "enabled": false,
+    "email": "alex@example.com",
+    "maxAgeHours": 12,
+    "model": "haiku"
+  },
+  "leapsome": {
+    "enabled": false,
+    "includeArchived": true,
+    "maxAgeHours": 24,
+    "model": "haiku"
   }
 }

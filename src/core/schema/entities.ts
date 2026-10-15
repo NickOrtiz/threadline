@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 
-export const SourceType = z.enum(['teamwork', 'google-calendar', 'github', 'gitlab', 'slack', 'email', 'manual', 'fixture']);
+export const SourceType = z.enum(['teamwork', 'google-calendar', 'github', 'gitlab', 'malcolm', 'relay', 'leapsome', 'slack', 'email', 'manual', 'fixture']);
 export type SourceType = z.infer<typeof SourceType>;
 
 /** Provenance: enough to trace any entity back to the record it came from. */
@@ -50,7 +50,7 @@ export const WorkItemKind = z.enum(['task', 'pull_request', 'review', 'issue']);
 export const CodeReviewState = z.object({
   /** "author": your PR. "reviewer": someone asked you to review theirs. */
   role: z.enum(['author', 'reviewer']),
-  state: z.enum(['draft', 'awaiting_review', 'changes_requested', 'approved']),
+  state: z.enum(['draft', 'awaiting_review', 'changes_requested', 'approved', 'merged', 'closed']),
   checks: z.enum(['passing', 'failing', 'pending']).nullable(),
   /** Repository and number, e.g. "acme/website #42". */
   ref: z.string(),
@@ -84,6 +84,8 @@ export const WorkItem = z.object({
    * as a task handed to reviewers. Reports use it; focus and capacity do not.
    */
   mine: z.boolean().default(true),
+  /** Requirement documents (PRDs) that describe this work. */
+  prdIds: z.array(z.string()).default([]),
   updatedAt: IsoDateTime,
   source: SourceRef,
 });
@@ -165,11 +167,22 @@ export type Knowledge = z.infer<typeof Knowledge>;
 export const Goal = z.object({
   id: z.string(),
   title: z.string(),
-  outcome: z.string(),
-  measurement: z.string(),
+  /** The desired outcome, in plain text. */
+  outcome: z.string().nullable(),
+  /** "live", "draft", "approvalPending", or "archived". */
+  status: z.string(),
+  /** 0–100, as the source reports it. */
+  progress: z.number().nullable(),
   deadline: IsoDate.nullable(),
-  projectIds: z.array(z.string()),
-  evidenceIds: z.array(z.string()),
+  /** The goal cycle, such as "2026". */
+  cycle: z.string().nullable(),
+  /** How the goal is measured. */
+  keyResults: z.array(z.object({ name: z.string(), progress: z.number().nullable() })),
+  manager: z.string().nullable(),
+  projectIds: z.array(z.string()).default([]),
+  /** Journal or knowledge entries that support the goal. */
+  evidenceIds: z.array(z.string()).default([]),
+  source: SourceRef,
 });
 export type Goal = z.infer<typeof Goal>;
 
@@ -185,10 +198,89 @@ export const Activity = z.object({
   title: z.string(),
   /** A short excerpt, such as the first line of a comment. */
   text: z.string().nullable(),
+  /** Full links found in the activity, such as pull request URLs. */
+  links: z.array(z.string()).default([]),
   url: z.string().nullable(),
   source: SourceRef,
 });
 export type Activity = z.infer<typeof Activity>;
+
+/** Planned time: hours per working day booked on a project for a date range. */
+export const Allocation = z.object({
+  id: z.string(),
+  projectId: z.string().nullable(),
+  projectName: z.string(),
+  startAt: IsoDate,
+  endAt: IsoDate,
+  hoursPerDay: z.number().nonnegative(),
+  billable: z.boolean(),
+  /** "hard" is confirmed, "soft" is tentative. */
+  firmness: z.enum(['hard', 'soft']),
+  /** Who manages the project, when the source knows. */
+  manager: z.string().nullable(),
+  source: SourceRef,
+});
+export type Allocation = z.infer<typeof Allocation>;
+
+/** Approved or requested time off. */
+export const Leave = z.object({
+  id: z.string(),
+  startAt: IsoDate,
+  endAt: IsoDate,
+  hours: z.number().nonnegative().nullable(),
+  kind: z.string(),
+  status: z.string(),
+  source: SourceRef,
+});
+export type Leave = z.infer<typeof Leave>;
+
+/** Time you logged against a project. */
+export const TimeLog = z.object({
+  id: z.string(),
+  projectId: z.string().nullable(),
+  workItemId: z.string().nullable(),
+  date: IsoDate,
+  minutes: z.number().nonnegative(),
+  billable: z.boolean(),
+  source: SourceRef,
+});
+export type TimeLog = z.infer<typeof TimeLog>;
+
+/** A requirement document (PRD), reduced to what helps while doing the work. */
+export const Requirement = z.object({
+  id: z.string(),
+  projectId: z.string().nullable(),
+  code: z.string().nullable(),
+  title: z.string(),
+  status: z.string(),
+  path: z.string(),
+  acceptanceTotal: z.number().int().nonnegative(),
+  acceptanceDone: z.number().int().nonnegative(),
+  openQuestions: z.array(z.string()),
+  /** Dependencies the PRD marks as still needed. */
+  neededDependencies: z.array(z.string()),
+  designLinks: z.array(z.string()),
+  /** Work item ids this PRD names, such as the Teamwork task it was written for. */
+  workItemIds: z.array(z.string()),
+  updatedAt: IsoDateTime,
+  source: SourceRef,
+});
+export type Requirement = z.infer<typeof Requirement>;
+
+/** One document in a knowledge base, such as a Relay PRD, epic, or notebook page. Metadata only. */
+export const KnowledgeDocument = z.object({
+  id: z.string(),
+  projectId: z.string().nullable(),
+  /** The knowledge base's own project, such as a Relay slug. */
+  space: z.string(),
+  path: z.string(),
+  title: z.string(),
+  kind: z.enum(['prd', 'epic', 'domain', 'notebook', 'other']),
+  status: z.string().nullable(),
+  updatedAt: IsoDateTime,
+  source: SourceRef,
+});
+export type KnowledgeDocument = z.infer<typeof KnowledgeDocument>;
 
 /** Everything one sync run produced, before projection. */
 export const EntityStore = z.object({
@@ -199,6 +291,12 @@ export const EntityStore = z.object({
   events: z.array(Event),
   /** Your own recent activity, for daily reports. Absent in older syncs. */
   activities: z.array(Activity).default([]),
+  allocations: z.array(Allocation).default([]),
+  leave: z.array(Leave).default([]),
+  timeLogs: z.array(TimeLog).default([]),
+  requirements: z.array(Requirement).default([]),
+  documents: z.array(KnowledgeDocument).default([]),
+  goals: z.array(Goal).default([]),
   /** Sources that failed or were skipped this run, so the UI can say so. */
   sourceStatus: z.array(z.object({ type: SourceType, ok: z.boolean(), message: z.string() })),
 });

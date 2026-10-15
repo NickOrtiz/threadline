@@ -16,8 +16,12 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { extname, join, resolve } from 'node:path';
 import { loadConfig } from './core/config.ts';
 import { loadTodos, saveTodos, Todo, TodoInput, TodoPatch } from './storage/todos.ts';
+import { loadNotes, saveNotes, ThreadNote } from './storage/notes.ts';
 import { loadActivity, recordSeen, saveActivity } from './storage/history.ts';
 import { localIso } from './core/time.ts';
+import { MALCOLM_IMPORT_PATH } from './adapters/malcolm/schema.ts';
+import { LEAPSOME_IMPORT_PATH } from './adapters/leapsome/schema.ts';
+import { stat } from 'node:fs/promises';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // Storage modules use paths relative to the project folder.
@@ -107,6 +111,35 @@ function runJob(kind: 'sync' | 'rebuild', reason: string) {
   });
 }
 
+// ── Claude-run imports ──────────────────────────────────────────────────
+// Malcolm and Leapsome have no personal API tokens yet, so a Claude run
+// refreshes their import files when they are missing or older than maxAgeHours.
+
+const IMPORTS = [
+  { name: 'Malcolm', enabled: config.malcolm.enabled, path: MALCOLM_IMPORT_PATH, maxAgeHours: config.malcolm.maxAgeHours, script: 'src/adapters/malcolm/import.ts' },
+  { name: 'Leapsome', enabled: config.leapsome.enabled, path: LEAPSOME_IMPORT_PATH, maxAgeHours: config.leapsome.maxAgeHours, script: 'src/adapters/leapsome/import.ts' },
+];
+const importing = new Set<string>();
+
+async function refreshImportsIfStale() {
+  for (const imp of IMPORTS) {
+    if (!imp.enabled || importing.has(imp.name)) continue;
+    const age = await stat(imp.path).then(s => Date.now() - s.mtimeMs, () => Infinity);
+    if (age < imp.maxAgeHours * 3_600_000) continue;
+    importing.add(imp.name);
+    log(`${imp.name} import started`);
+    const child = spawn(process.execPath, ['--env-file-if-exists=.env', imp.script], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    child.stdout?.on('data', c => { output += c; });
+    child.stderr?.on('data', c => { output += c; });
+    child.on('close', code => {
+      importing.delete(imp.name);
+      log(code === 0 ? output.trim().split('\n').at(-1) ?? `${imp.name} import finished` : `${imp.name} import failed: ${output.trim().slice(0, 200)}`);
+      if (code === 0) requestRebuild();
+    });
+  }
+}
+
 // ── To-dos and activity ─────────────────────────────────────────────────
 
 /** Serializes writes to memory/todos.json. */
@@ -144,8 +177,46 @@ function sendJson(res: ServerResponse, code: number, data: unknown) {
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(data));
 }
 
+/** Serializes writes to memory/notes.json. */
+let noteWrites: Promise<unknown> = Promise.resolve();
+function withNotes<T>(fn: (notes: Record<string, ThreadNote[]>) => T): Promise<T> {
+  const next = noteWrites.then(async () => {
+    const notes = await loadNotes();
+    const result = fn(notes);
+    await saveNotes(notes);
+    return result;
+  });
+  noteWrites = next.catch(() => {});
+  return next;
+}
+
 async function handleApi(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
   const todoMatch = path.match(/^\/api\/todos\/([a-z0-9-]+)$/);
+  const noteMatch = path.match(/^\/api\/threads\/([\w.-]+)\/notes(?:\/([a-z0-9]+))?$/);
+
+  // Thread notes: local working notes, never sent to a source.
+  if (noteMatch && req.method === 'POST' && !noteMatch[2]) {
+    const input = (await readJson(req)) as { body?: unknown };
+    const note = ThreadNote.safeParse({ id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, at: localIso(new Date()), body: input.body });
+    if (!note.success) throw new HttpError(400, note.error.issues[0]?.message ?? 'Invalid note');
+    await withNotes(notes => { notes[noteMatch[1]] = [...(notes[noteMatch[1]] ?? []), note.data]; });
+    requestRebuild();
+    sendJson(res, 201, note.data);
+    return true;
+  }
+  if (noteMatch && req.method === 'DELETE' && noteMatch[2]) {
+    await readJson(req).catch(() => {}); // no body needed, but keep the origin check
+    const removed = await withNotes(notes => {
+      const list = notes[noteMatch[1]] ?? [];
+      const kept = list.filter(n => n.id !== noteMatch[2]);
+      notes[noteMatch[1]] = kept;
+      return kept.length !== list.length;
+    });
+    if (!removed) throw new HttpError(404, 'No such note');
+    requestRebuild();
+    sendJson(res, 200, { ok: true });
+    return true;
+  }
 
   if (path === '/api/todos' && req.method === 'GET') {
     sendJson(res, 200, { todos: await loadTodos() });
@@ -259,7 +330,11 @@ const server = createServer(async (req, res) => {
 server.listen(port, '127.0.0.1', () => {
   log(`Threadline is running at http://localhost:${port}`);
   log(autoSync ? `Syncing now, then every ${syncIntervalMinutes} minutes. Press Ctrl+C to stop.` : 'Automatic sync is off. Press Ctrl+C to stop.');
-  if (autoSync) runSync('startup');
+  if (autoSync) {
+    runSync('startup');
+    void refreshImportsIfStale();
+    setInterval(() => void refreshImportsIfStale(), 30 * 60_000);
+  }
 });
 
 // Check every 30 seconds rather than one long timer, so a sync that came

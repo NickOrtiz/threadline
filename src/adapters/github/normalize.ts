@@ -34,6 +34,8 @@ function checksState(pr: GithubPullRequest): CodeReviewState['checks'] {
 }
 
 function reviewState(pr: GithubPullRequest): CodeReviewState['state'] {
+  if (pr.state === 'MERGED') return 'merged';
+  if (pr.state === 'CLOSED') return 'closed';
   if (pr.isDraft) return 'draft';
   if (pr.reviewDecision === 'CHANGES_REQUESTED') return 'changes_requested';
   if (pr.reviewDecision === 'APPROVED') return 'approved';
@@ -45,12 +47,14 @@ const NEXT_ACTION: Record<CodeReviewState['state'], string> = {
   awaiting_review: 'Wait for review.',
   changes_requested: 'Address the requested changes.',
   approved: 'Merge it.',
+  merged: 'Nothing to do. It is merged.',
+  closed: 'Nothing to do. It was closed.',
 };
 
 function base(connection: CodeHost, url: string, id: string, syncedAt: string) {
   return {
     threadId: null, priority: null, parentId: null, startAt: null, completedAt: null,
-    estimatedMinutes: null, stage: null, needsResponse: false, mine: true, source: { type: 'github' as const, id: `${connection.host}/${id}`, url, syncedAt },
+    estimatedMinutes: null, stage: null, needsResponse: false, mine: true, prdIds: [], source: { type: 'github' as const, id: `${connection.host}/${id}`, url, syncedAt },
   };
 }
 
@@ -69,12 +73,13 @@ export function normalizeGithubPullRequest(pr: GithubPullRequest, role: 'author'
     projectId,
     title: role === 'reviewer' ? `Review: ${pr.title}` : pr.title,
     kind: role === 'reviewer' ? 'review' : 'pull_request',
-    status: waiting ? 'waiting' : state === 'draft' ? 'in_progress' : 'open',
+    status: state === 'merged' || state === 'closed' ? 'done' : waiting ? 'waiting' : state === 'draft' ? 'in_progress' : 'open',
     group: ref,
     dueAt: null,
     nextAction,
     blockedBy: waiting ? ['Reviewer'] : [],
     codeReview: { role, state, checks, ref },
+    completedAt: pr.mergedAt ?? pr.closedAt ?? null,
     updatedAt: pr.updatedAt,
   };
 }

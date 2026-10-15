@@ -52,6 +52,38 @@ export const Config = z.object({
     lookaheadDays: z.number().int().positive().default(7),
   }),
   codeHosts: z.array(CodeHost).default([]),
+  relay: z.object({
+    /** The Relay Cloud MCP endpoint, such as https://relay.example.com/api/mcp. Required to sync PRDs. */
+    url: z.string().url().optional(),
+    /** Threadline project id → Relay project slugs whose PRDs belong to it. */
+    projects: z.record(z.string(), z.array(z.string())).default({}),
+    /** Link to a Relay project, such as https://relay.example.com/projects/{project}. {project} is the slug. */
+    projectUrl: z.string().optional(),
+    /**
+     * Link to one Relay document. {project} is the slug. {path} is the file
+     * path inside requirements/, without "/index.md" or ".md".
+     * Leave unset to link documents to their project instead.
+     */
+    documentUrl: z.string().optional(),
+  }).default({ projects: {} }),
+  malcolm: z.object({
+    /** Malcolm has no personal API yet, so `npm run import:malcolm` asks Claude to read it. */
+    enabled: z.boolean().default(false),
+    /** Your Malcolm login email. Defaults to the MALCOLM_EMAIL environment variable. */
+    email: z.string().optional(),
+    /** The server re-imports when the last import is older than this. */
+    maxAgeHours: z.number().positive().default(12),
+    /** The Claude model that runs the import. */
+    model: z.string().default('haiku'),
+  }).default({ enabled: false, maxAgeHours: 12, model: 'haiku' }),
+  leapsome: z.object({
+    /** Leapsome has no personal API, so `npm run import:leapsome` asks Claude to read it. */
+    enabled: z.boolean().default(false),
+    /** Include goals from past cycles, shown as past goals. */
+    includeArchived: z.boolean().default(true),
+    maxAgeHours: z.number().positive().default(24),
+    model: z.string().default('haiku'),
+  }).default({ enabled: false, includeArchived: true, maxAgeHours: 24, model: 'haiku' }),
   report: z.object({
     /** How many days back the report page covers, today included. */
     days: z.number().int().min(1).max(30).default(7),

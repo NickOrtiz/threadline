@@ -6,6 +6,9 @@ import type { ProjectView } from '../schema/view.ts';
 import type { ProjectMemory } from '../../storage/memory.ts';
 import { addDays, dueLabel, formatShortDate, localDate, weekStart } from '../time.ts';
 import type { RankedItem } from './workload.ts';
+import type { ProjectWeek } from './budget.ts';
+
+const BOOKING_LABEL = { behind: 'Behind pace', on_pace: 'Healthy', done: 'Healthy', over: 'Over booking' } as const;
 
 export function deriveProjects(
   projects: Project[],
@@ -13,6 +16,7 @@ export function deriveProjects(
   ranked: RankedItem[],
   memory: Record<string, ProjectMemory>,
   today: string,
+  week: Map<string, ProjectWeek> = new Map(),
 ): ProjectView[] {
   const monday = weekStart(today);
 
@@ -41,7 +45,11 @@ export function deriveProjects(
         objective: m.objective ?? p.description,
         nextMilestone: nextDue ? `${nextDue.item.title} · ${dueLabel(nextDue.item.dueAt, today)}` : 'Nothing scheduled',
         sourceUrl: p.source.url,
-        health: { schedule },
+        health: { schedule, ...(week.get(p.id) ? { booking: BOOKING_LABEL[week.get(p.id)!.status] } : {}) },
+        week: week.get(p.id) ? {
+          booked: week.get(p.id)!.booked, logged: week.get(p.id)!.logged, remaining: week.get(p.id)!.remaining,
+          status: week.get(p.id)!.status, manager: week.get(p.id)!.manager,
+        } : undefined,
         goals: m.goals ?? [],
         accomplishments: m.accomplishments ?? [],
         decisions: m.decisions ?? [],

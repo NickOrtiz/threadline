@@ -3,7 +3,8 @@
 // The rules are conservative about NOW. Most things land in NEXT or WATCH,
 // and stale work is grouped per project so it does not flood the page.
 
-import type { Event, Project, Signal } from '../schema/entities.ts';
+import type { Event, Project, Requirement, Signal } from '../schema/entities.ts';
+import type { WeekBudget } from './budget.ts';
 import type { AttentionItem } from '../schema/view.ts';
 import { daysBetween, dueLabel, formatClock, localDate, minutesLabel } from '../time.ts';
 import type { RankedItem } from './workload.ts';
@@ -23,6 +24,9 @@ export interface SignalContext {
   todayFit: { leftMinutes: number; nextWorkday: string } | null;
   /** True for weekends and full out-of-office days. */
   isDayOff: (date: string) => boolean;
+  /** This week's bookings against logged time. Null without allocations. */
+  week: WeekBudget | null;
+  requirements: Map<string, Requirement>;
 }
 
 export function deriveSignals(ctx: SignalContext): Signal[] {
@@ -86,6 +90,8 @@ export function deriveSignals(ctx: SignalContext): Signal[] {
 
   signals.push(...codeReviewSignals(ctx, rule));
   signals.push(...timeSignals(ctx, rule));
+  signals.push(...bookingSignals(ctx, rule));
+  signals.push(...requirementSignals(ctx, rule));
 
   for (const [a, b] of conflicts(ctx.events, ctx.today)) {
     signals.push({
@@ -161,6 +167,75 @@ function timeSignals(ctx: SignalContext, rule: (name: string, confidence?: numbe
   return out;
 }
 
+const hours = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)} h`;
+const days = (n: number) => `${n} working day${n === 1 ? '' : 's'}`;
+
+/** Booked time this week (Malcolm) against logged time (Teamwork). */
+function bookingSignals(ctx: SignalContext, rule: (name: string, confidence?: number) => Signal['derivation']): Signal[] {
+  const week = ctx.week;
+  if (!week) return [];
+  const out: Signal[] = [];
+  const openWork = (projectId: string) => ctx.ranked.some(r => r.item.projectId === projectId && !r.stale && r.item.status !== 'waiting' && r.item.status !== 'blocked');
+
+  for (const p of week.projects) {
+    const ask = p.manager ? `ask ${p.manager}` : 'ask the project manager';
+    const base = { subject: { kind: 'project' as const, id: p.projectId }, projectId: p.projectId, dueAt: null };
+    if (p.status === 'behind' && !openWork(p.projectId)) {
+      out.push({ ...base, id: `sig-booking-idle-${p.projectId}`, type: 'capacity_risk', level: 'watch',
+        title: `${p.name}: ${hours(p.booked)} booked this week, no open tasks`,
+        detail: `You have logged ${hours(p.logged)}, and nothing open is assigned to you here.`,
+        why: 'Booked time with no visible work usually means a missing task.',
+        action: `Ask what to pick up (${ask})`, derivation: rule('booking-no-work') });
+    } else if (p.status === 'behind') {
+      out.push({ ...base, id: `sig-booking-behind-${p.projectId}`, type: 'capacity_risk',
+        level: p.daysLeft <= 2 && p.remaining >= 4 ? 'next' : 'watch',
+        title: `${p.name}: ${hours(p.remaining)} of this week's booking left`,
+        detail: `Booked ${hours(p.booked)}, logged ${hours(p.logged)}. ${days(p.daysLeft)} left this week.`,
+        why: 'Your booked time for this project is behind pace.',
+        action: p.remaining > p.daysLeft * 6 ? `Plan the time, or ${ask} to move the booking` : 'Plan time for it this week', derivation: rule('booking-pace', 0.9) });
+    } else if (p.status === 'over') {
+      out.push({ ...base, id: `sig-booking-over-${p.projectId}`, type: 'capacity_risk', level: 'watch',
+        title: `${p.name}: ${hours(p.logged)} logged of ${hours(p.booked)} booked`,
+        detail: 'You are over this week\'s booking.',
+        why: 'Time past the booking may not be budgeted.',
+        action: `Check before logging more (${ask})`, derivation: rule('booking-over') });
+    }
+  }
+
+  if (week.booked > week.available + 0.5) {
+    out.push({ id: 'sig-booking-total', type: 'capacity_risk', level: 'watch',
+      subject: { kind: 'capacity', id: 'week' }, projectId: null,
+      title: `Booked ${hours(week.booked)} this week, ${hours(week.available)} available`,
+      detail: week.projects.map(p => `${p.name} ${hours(p.booked)}`).join(' · '),
+      why: 'Your bookings add up to more than your working hours.',
+      action: 'Raise it with the project managers', dueAt: null, derivation: rule('booking-total') });
+  }
+  return out;
+}
+
+/** Work about to start or underway whose PRD still has open product questions. */
+function requirementSignals(ctx: SignalContext, rule: (name: string, confidence?: number) => Signal['derivation']): Signal[] {
+  const out: Signal[] = [];
+  for (const r of ctx.ranked) {
+    const { item } = r;
+    if (r.stale || item.status === 'waiting' || item.status === 'blocked' || !item.prdIds.length) continue;
+    const soon = item.status === 'in_progress' || (r.daysUntilDue !== null && r.daysUntilDue <= 5);
+    if (!soon) continue;
+    const prds = item.prdIds.map(id => ctx.requirements.get(id)).filter((x): x is Requirement => !!x);
+    const questions = prds.flatMap(p => p.openQuestions);
+    if (!questions.length) continue;
+    out.push({
+      id: `sig-prd-questions-${item.id}`, type: 'blocked', level: 'next',
+      subject: { kind: 'workItem', id: item.id }, projectId: item.projectId,
+      title: `${item.title}: ${questions.length} open product question${questions.length === 1 ? '' : 's'}`,
+      detail: questions.slice(0, 2).join(' · ') + (questions.length > 2 ? ` · +${questions.length - 2} more` : ''),
+      why: `${prds.map(p => p.code ?? p.title).join(', ')} still has unanswered questions. Building now risks rework.`,
+      action: 'Get answers before you build', dueAt: item.dueAt, derivation: rule('prd-open-questions'),
+    });
+  }
+  return out;
+}
+
 /** PR waits shorter than this are normal and not worth a signal. */
 const REVIEW_WAIT_DAYS = 3;
 /** PRs idle longer than this are abandoned, not waiting. They get no signal. */
@@ -215,7 +290,7 @@ const STATUS: Record<Signal['type'], string> = {
   capacity_risk: 'Over capacity', response_needed: 'Needs response', blocked: 'Blocked', waiting: 'Waiting',
   review_requested: 'Review requested', goal_risk: 'Goal risk', important_change: 'Ready',
 };
-const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do' };
+const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do', malcolm: 'Malcolm', relay: 'Relay' };
 
 export function toAttentionItems(
   signals: Signal[],
