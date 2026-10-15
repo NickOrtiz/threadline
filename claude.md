@@ -1017,6 +1017,16 @@ Threadline owns:
 
 These are different responsibilities.
 
+## Read-only toward sources
+
+Threadline is a dashboard for viewing and linking information. It never writes to a source system: not Teamwork, GitHub, Calendar, Malcolm, Leapsome, or Relay Cloud.
+
+* Read source records, normalize them, and link back to them.
+* Keep anything the user confirms in Threadline, such as knowledge, completion notes, and to-dos, in Threadline's own local storage.
+* Do not add "promote to …", "sync back", or any other action that changes a source because of how Threadline is used.
+
+Relay Cloud is the team's knowledge base for tickets: PRDs, epics, and notebooks. Threadline shows it and links into it. It does not copy Relay content into its own knowledge store, and it never writes to Relay.
+
 ---
 
 # Integration behavior
