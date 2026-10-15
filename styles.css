@@ -257,7 +257,7 @@ h1 { margin-bottom:8px; font-size: clamp(40px, 5vw, 70px); line-height:.96; lett
 
 .attention-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
 .filter-chip { border:1px solid var(--line); background:rgb(var(--glass) / .38); border-radius:999px; min-height:34px; padding:0 13px; color:var(--muted); cursor:pointer; font:500 11px var(--mono); }
-.filter-chip.active { background:var(--ink); color:white; border-color:var(--ink); }
+.filter-chip.active { background:var(--ink); color:var(--on-ink); border-color:var(--ink); }
 .attention-list { display:grid; gap:12px; }
 .attention-card { display:grid; grid-template-columns:8px minmax(0,1fr) auto; gap:18px; padding:22px; border:1px solid var(--line); border-radius:var(--radius-lg); background:rgb(var(--glass) / .48); }
 .attention-card:hover { background:rgb(var(--glass) / .7); }
