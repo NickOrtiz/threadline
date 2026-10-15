@@ -24,6 +24,8 @@ Without a sync, the UI renders a fixture. Every source is optional.
   </tr>
 </table>
 
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
 ## Contents
 
 1. [Quick start](#quick-start)

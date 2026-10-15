@@ -1206,6 +1206,7 @@ When modifying this project:
 * treat continuity and memory as first-class features
 * avoid introducing unnecessary dependencies
 * document schema changes
+* add user-visible changes to `CHANGELOG.md` under "Unreleased" in the same change
 * favor incremental integrations over large rewrites
 
 If something could make the interface technically richer but cognitively noisier, default against it.
