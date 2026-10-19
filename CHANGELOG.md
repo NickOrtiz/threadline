@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-19
+
 ### Added
 
 - **Batches.** The home page groups related tickets to do together, either in parallel (ready and independent, for AI builds in separate worktrees) or back to back in one focus block. Each batch shows its estimate, the ramp-up it saves, and whether it fits the week's booking, and has a brief to copy.
@@ -69,7 +71,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Settings page with light, dark, and system themes.
 - Demo fixtures and an example config with dummy data.
 
-[Unreleased]: https://github.com/NickOrtiz/threadline/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/NickOrtiz/threadline/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/NickOrtiz/threadline/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/NickOrtiz/threadline/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/NickOrtiz/threadline/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/NickOrtiz/threadline/compare/v0.1.0...v0.2.0
