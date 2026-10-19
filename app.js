@@ -146,6 +146,22 @@ window.startThreadline = (initial) => {
     </ol></div></article>`;
   }
 
+  /** Claude plan usage: one row per window, with a bar and its reset time. */
+  function claudeCard() {
+    const c = D.daily.claude;
+    if (!c) return '';
+    const at = iso => {
+      const d = new Date(iso), sameDay = d.toDateString() === new Date().toDateString();
+      return d.toLocaleString([], sameDay ? { hour: 'numeric', minute: '2-digit' } : { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    };
+    const LABEL = { '5-hour window': '5-hour window', week: 'This week' };
+    const rows = !c.windows.length ? '<p class="settings-hint">No active window. Claude Code reports a new one after your next request.</p>' : c.windows.map(w => `<div class="list-row usage-row">
+        <div><strong>${esc(LABEL[w.label] || w.label)}</strong><p>${w.resetsAt ? `Resets ${esc(at(w.resetsAt))}` : 'Reset time unknown'}</p></div>
+        <div class="usage-meter"><span class="usage-pct ${w.usedPercent >= 80 ? 'pulse-behind' : ''}">${Math.round(w.usedPercent)}%</span>${progress(Math.min(100, Math.round(w.usedPercent)))}</div>
+      </div>`).join('');
+    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">◔</span>Claude usage</div><span class="subtle-link ${c.stale ? 'usage-stale' : ''}" title="Reported by Claude Code's status line">${c.stale ? 'Last reported' : 'As of'} ${esc(at(c.capturedAt))}</span></div>${rows}${c.stale ? '<p class="settings-hint">This reading is old. It updates when you use Claude Code in this folder.</p>' : ''}</div></article>`;
+  }
+
   function todayCard() {
     return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">◫</span>Today</div><span class="subtle-link">${esc(D.daily.capacity.status)} capacity</span></div><ul class="timeline">
       ${D.schedule.length ? '' : empty(D.daily.capacity.status==='Unknown' ? 'No calendar connected.' : 'Nothing on the calendar today.')}${D.schedule.map(x=>`<li class="timeline-item ${x.kind}"><span class="timeline-dot"></span><span class="timeline-time">${esc(x.time)}</span><span class="timeline-copy"><strong>${esc(x.title)}</strong><small>${esc(x.meta)}</small></span></li>`).join('')}
@@ -164,7 +180,7 @@ window.startThreadline = (initial) => {
 
   function homePage(){
     const g = greetingParts();
-    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
+    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}${claudeCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
   }
 
   function attentionPage(){
@@ -333,6 +349,7 @@ window.startThreadline = (initial) => {
       </section>
       <section class="content-section"><h2>Sources</h2>
         ${sources || '<p>Fixture data has no connected sources.</p>'}
+        ${D.daily.claude ? `<div class="list-row"><div><strong>Claude usage</strong><p>${esc(D.daily.claude.windows.map(w => `${Math.round(w.usedPercent)}% of ${w.label}`).join(' · '))}. Reported by Claude Code's status line at ${esc(new Date(D.daily.claude.capturedAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }))}.</p></div>${pill('Connected', 'good')}</div>` : ''}
         <p class="settings-hint">To refresh, run <code>npm run sync</code> in the project folder, then reload this page. Setup steps for each source are in the README.</p>
       </section>
     </div>`;

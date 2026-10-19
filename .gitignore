@@ -11,3 +11,6 @@ data/
 memory/todos.json
 memory/journal/
 memory/notes.json
+
+# Your local Claude Code settings
+.claude/settings.local.json

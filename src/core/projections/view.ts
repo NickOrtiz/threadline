@@ -16,11 +16,12 @@ import { deriveReports, type DayStages } from './report.ts';
 import { deriveWeek, leaveAsEvents, type ProjectWeek } from './budget.ts';
 import { deriveThreads } from './threads.ts';
 import type { ThreadNote } from '../../storage/notes.ts';
+import type { ClaudeUsage } from '../../storage/claude-usage.ts';
 import type { KnowledgeDocument, Requirement } from '../schema/entities.ts';
 import type { JournalEntry } from '../../storage/journal.ts';
 import { relayUrl } from '../../adapters/relay/normalize.ts';
 
-const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do', malcolm: 'Malcolm', relay: 'Relay', leapsome: 'Leapsome' };
+const SOURCE_LABEL: Record<string, string> = { teamwork: 'Teamwork', 'google-calendar': 'Calendar', github: 'GitHub', gitlab: 'GitLab', manual: 'To-do', malcolm: 'Malcolm', relay: 'Relay', leapsome: 'Leapsome', claude: 'Claude' };
 
 export interface ViewExtras {
   todos: Todo[];
@@ -31,6 +32,8 @@ export interface ViewExtras {
   journal?: JournalEntry[];
   /** Your local notes on threads. */
   notes?: Record<string, ThreadNote[]>;
+  /** Claude plan usage from the status line script. */
+  claudeUsage?: ClaudeUsage | null;
 }
 
 export function buildView(store: EntityStore, memory: Memory, config: Config, now: Date, extras: ViewExtras = { todos: [], continuity: null }): ThreadlineView {
@@ -104,6 +107,20 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
       detail: t.nextAction, why: 'The board no longer matches the work.', due: '—', action: 'Move the task in Teamwork', estimatedEffort: '1 min', status: 'Board out of date',
     });
   }
+  // Claude usage near a limit: worth knowing before starting a big code task.
+  const claudeNow = claudeView(extras.claudeUsage ?? null, now);
+  for (const w of claudeNow && !claudeNow.stale ? claudeNow.windows : []) {
+    const limit = w.label === '5-hour window' ? 80 : 85;
+    if (w.usedPercent < limit) continue;
+    const resets = w.resetsAt ? new Date(w.resetsAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'soon';
+    attention.push({
+      id: `sig-claude-${w.label}`, level: 'watch', source: 'Claude', sourceRef: 'Plan usage', sourceUrl: null, projectId: null,
+      title: `Claude usage: ${Math.round(w.usedPercent)}% of your ${w.label}`,
+      detail: `It resets ${resets}.`,
+      why: 'A large code task could hit the limit before it finishes.',
+      due: '—', action: 'Save big code tasks for after the reset', estimatedEffort: '—', status: 'Near limit',
+    });
+  }
   const nowCount = attention.filter(a => a.level === 'now').length;
   const firstName = config.displayName ?? store.user.name.split(' ')[0];
   const hour = now.getHours();
@@ -139,6 +156,7 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
         allocation,
         status: capacityStatus,
       },
+      claude: claudeView(extras.claudeUsage ?? null, now),
       week: week ? { booked: week.booked, logged: round1(week.projects.reduce((t, p) => t + p.logged, 0)), available: week.available } : undefined,
     },
     focus: top ? { ...toFocus(top, today, now), prds: prdSummaries(top.item.prdIds, requirementsById) } : null,
@@ -205,6 +223,22 @@ function toFocus(r: RankedItem, today: string, now: Date): Focus {
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Past this age a reading is marked stale: usage elsewhere may have moved it since. */
+const CLAUDE_USAGE_STALE_MS = 3 * 3_600_000;
+
+/**
+ * Claude plan usage windows still in effect. A window past its reset no
+ * longer applies. Old readings stay visible, marked stale, so the card does
+ * not vanish over a weekend without Claude Code.
+ */
+function claudeView(usage: ClaudeUsage | null, now: Date) {
+  if (!usage) return undefined;
+  const windows = ([['5-hour window', usage.fiveHour], ['week', usage.sevenDay]] as const)
+    .filter(([, w]) => w && (!w.resetsAt || Date.parse(w.resetsAt) > now.getTime()))
+    .map(([label, w]) => ({ label, usedPercent: w!.usedPercent, resetsAt: w!.resetsAt }));
+  return { capturedAt: usage.capturedAt, stale: now.getTime() - Date.parse(usage.capturedAt) > CLAUDE_USAGE_STALE_MS, windows };
+}
 
 const GOAL_STATUS: Record<string, string> = { live: 'Live', draft: 'Draft', approvalPending: 'Awaiting approval', archived: 'Past cycle' };
 

@@ -28,6 +28,21 @@
       "booked": 30,
       "logged": 17.5,
       "available": 32
+    },
+    "claude": {
+      "capturedAt": "2026-10-08T15:40:00.000Z",
+      "windows": [
+        {
+          "label": "5-hour window",
+          "usedPercent": 38,
+          "resetsAt": "2099-01-01T18:00:00.000Z"
+        },
+        {
+          "label": "week",
+          "usedPercent": 52,
+          "resetsAt": "2099-01-06T09:00:00.000Z"
+        }
+      ]
     }
   },
   "focus": {

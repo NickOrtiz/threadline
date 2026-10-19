@@ -533,3 +533,9 @@ h1 { margin-bottom:8px; font-size: clamp(40px, 5vw, 70px); line-height:.96; lett
 .note { position:relative; }
 .note .todo-delete { position:absolute; top:10px; right:8px; }
 .note-composer { display:flex; gap:10px; }
+
+/* Claude usage card */
+.usage-meter { display:flex; align-items:center; gap:10px; min-width:130px; }
+.usage-meter .progress-track { flex:1; }
+.usage-pct { font:500 12px var(--mono); color:var(--ink); min-width:34px; text-align:right; }
+.usage-stale { color:var(--amber-ink); }

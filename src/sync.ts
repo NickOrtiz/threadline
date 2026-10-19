@@ -22,6 +22,7 @@ import type { DayStages, StageMap } from './core/projections/report.ts';
 import { deriveJournalEntries } from './core/projections/journal.ts';
 import { appendJournal, readJournal } from './storage/journal.ts';
 import { loadNotes } from './storage/notes.ts';
+import { loadClaudeUsage } from './storage/claude-usage.ts';
 import { localDate, localIso, addDays, atTime } from './core/time.ts';
 import { TeamworkAdapter } from './adapters/teamwork/adapter.ts';
 import { normalizeTeamwork } from './adapters/teamwork/normalize.ts';
@@ -73,6 +74,7 @@ const view = buildView(store, await loadMemory(), config, now, {
   stagesByDate: await stagesForReport(config, now),
   journal: await readJournal(addDays(localDate(now), -30)),
   notes: await loadNotes(),
+  claudeUsage: await loadClaudeUsage(),
 });
 await writeFile('data/state.json', JSON.stringify(view, null, 2));
 

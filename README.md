@@ -296,6 +296,25 @@ Each goal shows its key results with their progress. The "Open in Leapsome" link
 
 Both Claude-run imports share one helper, `src/adapters/claude-import.ts`. It gives Claude only the named read tools, asks for JSON that matches a fixed schema, and validates the result again with Zod.
 
+### Show your Claude usage
+
+Threadline can show how much of your Claude plan you have used. A **Claude usage** card on the home page, between Today and Project pulse, shows the 5-hour window and the week, each with a bar and its reset time. Settings shows the same reading. When the 5-hour window passes 80% or the week passes 85%, a WATCH item suggests saving big code tasks for after the reset.
+
+Claude Code is the only source. After each reply, it passes the usage to its status line command. Point the status line at Threadline's script in `.claude/settings.local.json`, a git-ignored file that affects only Claude Code sessions in this folder:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node \"/path/to/threadline/scripts/claude-statusline.cjs\""
+  }
+}
+```
+
+The script prints a short status line, such as "Opus · 5h 64% · week 74%". It saves only the two usage windows and the capture time to `data/claude-usage.json`. The rest of the status line input, which includes file paths, is not stored.
+
+The reading updates only while a Claude Code session runs in this folder. A reading older than 3 hours stays on the card, marked "Last reported", and no longer raises the near-limit warning. A window whose reset time has passed is dropped. Claude Code's documentation describes this data for Pro and Max plans; it also works on a Team plan. A custom status line replaces most of Claude Code's footer hints.
+
 ### GitLab and other hosts
 
 GitLab is not supported yet. The config and schema are ready for it. A GitLab connection will be another `codeHosts` entry with `"type": "gitlab"`. It will use the same `repos` allowlist and the same code review fields, so the attention rules will work unchanged. Until then, GitLab work shows up only through its Teamwork tasks.
@@ -529,6 +548,7 @@ Automatic sync only runs while `npm start` is running in a terminal. A macOS bac
 | `memory/todos.json` | Your to-dos | No |
 | `memory/journal/` | Your permanent work journal | No |
 | `memory/notes.json` | Your notes on threads | No |
+| `data/claude-usage.json` | Your latest Claude plan usage reading | No |
 | `data/imports/`, `data/relay-cache.json` | Malcolm and Leapsome imports, cached PRDs | No |
 | `data/snapshots/`, `data/activity.json` | Sync history and your dashboard sessions, for "while you were away" | No |
 | `threadline.config.example.json` | Example settings with dummy values | Yes |

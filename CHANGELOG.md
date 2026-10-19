@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+### Added
+
+- **Claude usage.** A home page card and Settings show how much of your Claude plan's 5-hour window and week you have used, and when each resets. Claude Code reports it through a status line script, `scripts/claude-statusline.cjs`. A WATCH item appears near either limit.
+
 ## [0.4.0] - 2026-10-15
 
 ### Added

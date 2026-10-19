@@ -259,6 +259,18 @@ export const ThreadlineView = z.object({
     }),
     /** This week's booked hours against your working hours. Absent without bookings. */
     week: z.object({ booked: z.number(), logged: z.number(), available: z.number() }).optional(),
+    /** Claude plan usage from Claude Code's status line. Absent until Claude Code reports it. */
+    claude: z.object({
+      /** When Claude Code last reported usage. Old readings mean no session has run since. */
+      capturedAt: z.string(),
+      /** True when the reading is old enough that usage elsewhere may have changed it. */
+      stale: z.boolean().optional(),
+      windows: z.array(z.object({
+        label: z.string(),
+        usedPercent: z.number(),
+        resetsAt: z.string().nullable(),
+      })),
+    }).optional(),
   }),
   focus: Focus.nullable(),
   attention: z.array(AttentionItem),

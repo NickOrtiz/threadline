@@ -22,6 +22,7 @@ import { localIso } from './core/time.ts';
 import { MALCOLM_IMPORT_PATH } from './adapters/malcolm/schema.ts';
 import { LEAPSOME_IMPORT_PATH } from './adapters/leapsome/schema.ts';
 import { stat } from 'node:fs/promises';
+import { watch } from 'node:fs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 // Storage modules use paths relative to the project folder.
@@ -330,6 +331,15 @@ const server = createServer(async (req, res) => {
 server.listen(port, '127.0.0.1', () => {
   log(`Threadline is running at http://localhost:${port}`);
   log(autoSync ? `Syncing now, then every ${syncIntervalMinutes} minutes. Press Ctrl+C to stop.` : 'Automatic sync is off. Press Ctrl+C to stop.');
+  // Claude Code rewrites data/claude-usage.json after each reply; show it within a minute.
+  let usageTimer: NodeJS.Timeout | null = null;
+  try {
+    watch(join(ROOT, 'data'), (_event, file) => {
+      if (file !== 'claude-usage.json' || usageTimer) return;
+      usageTimer = setTimeout(() => { usageTimer = null; requestRebuild(); }, 60_000);
+    });
+  } catch { /* no data folder yet; the next sync creates it */ }
+
   if (autoSync) {
     runSync('startup');
     void refreshImportsIfStale();
