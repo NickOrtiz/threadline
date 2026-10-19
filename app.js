@@ -178,9 +178,27 @@ window.startThreadline = (initial) => {
     return [...booked, ...D.projects.filter(p => !p.week)].slice(0, 4);
   }
 
+  /** Related tickets worth doing together, with a brief to paste into a worktree tool. */
+  function batchesCard() {
+    const batches = (D.batches || []).slice(0, 3);
+    if (!batches.length) return '';
+    const rows = batches.map((b, i) => {
+      const est = b.estimateMinutes ? `${Math.round(b.estimateMinutes / 6) / 10} h` : 'not estimated';
+      const saved = `saves about ${b.rampSavedMinutes[0]}–${b.rampSavedMinutes[1]} min`;
+      return `<div class="batch-row">
+        <div class="batch-head"><strong>${esc(b.title)}</strong>${pill(b.kind === 'parallel' ? `Parallel · ${b.slots} at a time` : 'Back to back', b.kind === 'parallel' ? 'good' : 'blue')}</div>
+        <p>${esc(`${b.items.length} tickets · ${est}${b.unestimated ? ` (+${b.unestimated} unestimated)` : ''} · ${saved}`)}</p>
+        ${b.notes.length ? `<p class="batch-note">${esc(b.notes.join(' '))}</p>` : ''}
+        <details><summary>Tickets</summary><ul>${b.items.map(x => `<li>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>` : esc(x.title)} <span class="batch-ready">${esc(x.ready === true ? 'ready' : x.ready === false ? x.reason : 'readiness unknown')}</span></li>`).join('')}</ul></details>
+        <button type="button" class="secondary-button" data-copy-batch="${i}">Copy brief</button>
+      </div>`;
+    }).join('');
+    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⧉</span>Batches</div><span class="subtle-link">Do these together</span></div>${rows}</div></article>`;
+  }
+
   function homePage(){
     const g = greetingParts();
-    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}</div><div class="stack">${todayCard()}${claudeCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
+    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}${batchesCard()}</div><div class="stack">${todayCard()}${claudeCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
   }
 
   function attentionPage(){
@@ -555,6 +573,12 @@ window.startThreadline = (initial) => {
       const p = currentDay().projects[Number(b.dataset.copyProject)];
       const heading = p.text.split('\n')[0].replace(/\*/g, '');
       flash(b, await copyReport(p.text, reportHtml([p]).replace(`<b>${esc(p.name)}</b>`, `<b>${esc(heading)}</b>`)));
+    }));
+    document.querySelectorAll('[data-copy-batch]').forEach(b => b.addEventListener('click', async () => {
+      const batch = (D.batches || [])[Number(b.dataset.copyBatch)];
+      let ok = false;
+      try { await navigator.clipboard.writeText(batch.brief); ok = true; } catch {}
+      const t = b.textContent; b.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { b.textContent = t; }, 1600);
     }));
     document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{activeDetailTab=btn.dataset.tab;route();}));
     document.querySelector('[data-note-form]')?.addEventListener('submit', async e => {

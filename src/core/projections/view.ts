@@ -15,6 +15,7 @@ import { deriveProjects } from './projects.ts';
 import { deriveReports, type DayStages } from './report.ts';
 import { deriveWeek, leaveAsEvents, type ProjectWeek } from './budget.ts';
 import { deriveThreads } from './threads.ts';
+import { deriveBatches } from './batches.ts';
 import type { ThreadNote } from '../../storage/notes.ts';
 import type { ClaudeUsage } from '../../storage/claude-usage.ts';
 import type { KnowledgeDocument, Requirement } from '../schema/entities.ts';
@@ -180,6 +181,12 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
         .map(e => ({ date: e.date, kind: e.kind, title: e.title, detail: e.detail, url: e.url })),
     })),
     threads: [...threads, ...memory.threads],
+    batches: deriveBatches({
+      ranked, workItems: store.workItems, requirements: requirementsById, week: weekByProject,
+      projectName: id => projectName(id) ?? id,
+      claudeUsedPercent: claudeNow && !claudeNow.stale && claudeNow.windows.length ? Math.max(...claudeNow.windows.map(w => w.usedPercent)) : null,
+      switchMinutes: config.batching.switchMinutes, parallelSlots: config.batching.parallelSlots,
+    }),
     goals: [...goalViews(store.goals, today), ...memory.goals],
     knowledge: memory.knowledge,
     review: memory.review ?? { period: `${now.getFullYear()} · year to date`, themes: [], narrative: 'No evidence retained yet. Evidence collects here as work closes.' },

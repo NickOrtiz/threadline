@@ -539,3 +539,16 @@ h1 { margin-bottom:8px; font-size: clamp(40px, 5vw, 70px); line-height:.96; lett
 .usage-meter .progress-track { flex:1; }
 .usage-pct { font:500 12px var(--mono); color:var(--ink); min-width:34px; text-align:right; }
 .usage-stale { color:var(--amber-ink); }
+
+/* Batches */
+.batch-row { padding:14px 0; border-top:1px solid var(--line); }
+.batch-row:first-of-type { border-top:0; padding-top:0; }
+.batch-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content:space-between; }
+.batch-head strong { font-size:14px; }
+.batch-row p { margin:6px 0 0; color:var(--muted); font-size:13px; }
+.batch-note { color:var(--faint) !important; font-size:12px !important; }
+.batch-row details { margin:8px 0; font-size:13px; }
+.batch-row summary { cursor:pointer; font-weight:600; }
+.batch-row ul { margin:6px 0 0; padding-left:18px; line-height:1.7; }
+.batch-row a { color:inherit; text-decoration:underline; text-decoration-color:var(--line-strong); text-underline-offset:3px; }
+.batch-ready { color:var(--faint); font:500 11px var(--mono); }

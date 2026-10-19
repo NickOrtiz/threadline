@@ -285,6 +285,21 @@ export const ThreadlineView = z.object({
   todos: z.array(TodoView).optional(),
   /** "While you were away". Present only after a meaningful gap. */
   continuity: ContinuityView.nullable().optional(),
+  /** Related tickets worth doing together: in parallel, or back to back. */
+  batches: z.array(z.object({
+    id: z.string(),
+    projectId: z.string(),
+    title: z.string(),
+    kind: z.enum(['parallel', 'back_to_back']),
+    slots: z.number(),
+    items: z.array(z.object({ id: z.string(), title: z.string(), url: z.string().nullable(), estimate: z.string(), ready: z.boolean().nullable(), reason: z.string() })),
+    estimateMinutes: z.number(),
+    unestimated: z.number(),
+    rampSavedMinutes: z.tuple([z.number(), z.number()]),
+    notes: z.array(z.string()),
+    /** Plain text to paste into a worktree or agent tool. */
+    brief: z.string(),
+  })).optional(),
   /** Daily status reports, newest first. Absent in older fixtures. */
   reports: z.array(DayReportView).optional(),
 });

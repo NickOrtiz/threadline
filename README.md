@@ -358,6 +358,8 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | `leapsome.includeArchived` | `true` | Include goals from past cycles. |
 | `leapsome.maxAgeHours` | `24` | `npm start` re-imports when the last import is older. |
 | `leapsome.model` | `haiku` | The Claude model that runs the import. |
+| `batching.switchMinutes` | `[5, 15]` | Minutes lost per switch between tickets, low and high. |
+| `batching.parallelSlots` | `3` | Tickets a parallel batch runs at once. |
 | `report.days` | `7` | How many days the Report page covers, today included. |
 | `continuity.awayHours` | `8` | How long a gap must be before "while you were away" appears. |
 | `codeHosts[]` | `[]` | GitHub connections. See [Connect GitHub](#connect-github). |
@@ -463,6 +465,19 @@ Threads are grouped into **Needs you**, **Waiting on others**, and **Done**. A t
 One rule raises a WATCH item: when every pull request on a task is merged but the task still sits in a review stage, the board no longer matches the work.
 
 **Notes.** Each thread has working notes for what future you should know. They are saved in `memory/notes.json`, which is git-ignored, and they never leave Threadline.
+
+## Batches
+
+To cut ramp-up time, the home page suggests tickets worth doing together, under **Batches**. Tickets group by project, then by epic code (such as `E 5.x`), title prefix (such as `Core block:`), or tasklist.
+
+| Kind | When | How to do it |
+| --- | --- | --- |
+| Parallel | Every ticket is ready (approved PRD, no open questions), and none share a PRD or depend on each other | Build them side by side, for example with AI agents in separate git worktrees, `batching.parallelSlots` at a time |
+| Back to back | The tickets share context but share a PRD, depend on each other, or have unknown readiness | Do them in one focus block, so you ramp up once |
+
+Each batch shows its estimate and the ramp-up it saves, using `batching.switchMinutes`, 5–15 minutes per switch by default. It also says whether it fits the project's booked hours this week, and holds parallel AI builds while Claude usage is at 90% or more. **Copy brief** gives plain text for any worktree or agent tool: the repo, each ticket with its link, PRD, and estimate, and how to run it.
+
+Only your own actionable Teamwork work is batched. Waiting, blocked, and stale tickets are left out. Readiness relies on Relay PRDs, so projects without PRDs only get back-to-back batches.
 
 ## Daily report
 

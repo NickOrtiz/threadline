@@ -84,6 +84,12 @@ export const Config = z.object({
     maxAgeHours: z.number().positive().default(24),
     model: z.string().default('haiku'),
   }).default({ enabled: false, includeArchived: true, maxAgeHours: 24, model: 'haiku' }),
+  batching: z.object({
+    /** Minutes lost per switch between tickets, as a [low, high] range. */
+    switchMinutes: z.tuple([z.number().nonnegative(), z.number().nonnegative()]).default([5, 15]),
+    /** How many tickets a parallel batch runs at once. */
+    parallelSlots: z.number().int().positive().default(3),
+  }).default({ switchMinutes: [5, 15], parallelSlots: 3 }),
   report: z.object({
     /** How many days back the report page covers, today included. */
     days: z.number().int().min(1).max(30).default(7),

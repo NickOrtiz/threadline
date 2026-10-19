@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ### Added
 
+- **Batches.** The home page groups related tickets to do together, either in parallel (ready and independent, for AI builds in separate worktrees) or back to back in one focus block. Each batch shows its estimate, the ramp-up it saves, and whether it fits the week's booking, and has a brief to copy.
 - **Claude usage.** A home page card and Settings show how much of your Claude plan's 5-hour window and week you have used, and when each resets. Claude Code reports it through a status line script, `scripts/claude-statusline.cjs`. A WATCH item appears near either limit.
 
 ## [0.4.0] - 2026-10-15

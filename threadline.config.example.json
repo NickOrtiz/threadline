@@ -85,5 +85,12 @@
     "includeArchived": true,
     "maxAgeHours": 24,
     "model": "haiku"
+  },
+  "batching": {
+    "switchMinutes": [
+      5,
+      15
+    ],
+    "parallelSlots": 3
   }
 }

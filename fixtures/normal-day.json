@@ -703,5 +703,50 @@
       ],
       "text": "*Status \u00b7 Thursday, Oct 8*\n\n*Northwind*\n\u2022 *Finalize mobile navigation behavior* \u2014 In Review. Keyboard focus return settled; ready for a team check (PR #184)\n\u2022 *Resolve PR #184 review comments* \u2014 Done\n_Next:_ Prepare three talking points for project sync\n_Waiting on others:_ Environment confirmation (Waiting)\n\n*Juniper*\n\u2022 *Check homepage content approval* \u2014 Waiting on Client. Nudged the content owner"
     }
+  ],
+  "batches": [
+    {
+      "id": "batch-northwind-blocks",
+      "projectId": "northwind",
+      "title": "Northwind \u00b7 Core block",
+      "kind": "parallel",
+      "slots": 3,
+      "items": [
+        {
+          "id": "t1",
+          "title": "Core block: Quote",
+          "url": null,
+          "estimate": "1 h",
+          "ready": true,
+          "reason": "PRD approved, no open questions"
+        },
+        {
+          "id": "t2",
+          "title": "Core block: List",
+          "url": null,
+          "estimate": "1 h",
+          "ready": true,
+          "reason": "PRD approved, no open questions"
+        },
+        {
+          "id": "t3",
+          "title": "Core block: Media & Text",
+          "url": null,
+          "estimate": "2 h",
+          "ready": true,
+          "reason": "PRD approved, no open questions"
+        }
+      ],
+      "estimateMinutes": 240,
+      "unestimated": 0,
+      "rampSavedMinutes": [
+        10,
+        30
+      ],
+      "notes": [
+        "Fits this week's booking (9 h left)."
+      ],
+      "brief": "Batch: Northwind \u00b7 Core block (parallel, 3 at a time)\nRepo: acme/northwind-website\nEstimate: 4 h\n\n1. Core block: Quote (1 h)\n2. Core block: List (1 h)\n3. Core block: Media & Text (2 h)\n\nRun each ticket in its own worktree, then review them together."
+    }
   ]
 }
