@@ -110,7 +110,7 @@ export function deriveThreads({ store, journal, notes, now }: ThreadInput) {
     // Every linked PR is merged, but the task still waits in a review stage.
     const mergedButWaiting = task.mine && task.status === 'waiting' && prs.length > 0 && prs.every(p => stateOf(p) === 'merged');
     // Something on the thread needs you, whatever the board stage says.
-    const needsYou = task.status !== 'done' && (!!changes || !!failing || !!approved || task.needsResponse || mergedButWaiting);
+    const needsYou = task.status !== 'done' && (!!changes || !!failing || !!approved || task.needsResponse);
     const status = task.status === 'done' ? 'Done'
       : needsYou ? 'Active'
       : !task.mine ? 'Handed off'
@@ -118,7 +118,7 @@ export function deriveThreads({ store, journal, notes, now }: ThreadInput) {
       : 'Active';
 
     const nextAction = task.status === 'done' ? 'Nothing left to do.'
-      : mergedButWaiting ? `${prs.map(p => p.ref).join(', ')} ${prs.length === 1 ? 'is' : 'are'} merged. Move the task out of ${task.stage ?? 'review'}.`
+      : mergedButWaiting ? `${prs.map(p => p.ref).join(', ')} ${prs.length === 1 ? 'is' : 'are'} merged. The ticket can leave ${task.stage ?? 'review'} when the reviewer closes it out.`
       : changes ? `Address the requested changes on ${changes.ref}.`
       : failing ? `Fix the failing checks on ${failing.ref}.`
       : task.needsResponse ? 'Respond to the feedback.'
@@ -173,15 +173,15 @@ export function deriveThreads({ store, journal, notes, now }: ThreadInput) {
         restart: openPrs[0] ? `Open ${openPrs[0].ref}${prds[0] ? ` beside ${prds[0].code ?? 'the PRD'}` : ''}.` : prds[0] ? `Re-read ${prds[0].code ?? 'the PRD'}, then open the task.` : 'Open the task and read the latest comment.',
       },
       candidateLearnings: [],
+      /** In code review: waiting on a reviewer, or merged while the ticket is still in review. */
+      reviewState: status === 'Done' || needsYou ? null
+        : mergedButWaiting ? 'merged'
+        : openPrs.some(p => stateOf(p) === 'awaiting_review') || /review|qa/i.test(task.stage ?? '') ? 'in_review'
+        : null,
       mergedButWaiting,
       lastActiveAt,
     };
   }
-}
-
-/** Threads whose pull requests are all merged while the task still sits in review. */
-export function mergedButWaiting(threads: ReturnType<typeof deriveThreads>) {
-  return threads.filter(t => t.nextAction.includes(' merged. Move the task'));
 }
 
 /** Pull requests named in a thread's history, matched to the PRs Threadline knows. */

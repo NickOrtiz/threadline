@@ -236,8 +236,6 @@ function requirementSignals(ctx: SignalContext, rule: (name: string, confidence?
   return out;
 }
 
-/** PR waits shorter than this are normal and not worth a signal. */
-const REVIEW_WAIT_DAYS = 3;
 /** PRs idle longer than this are abandoned, not waiting. They get no signal. */
 const ABANDONED_DAYS = 30;
 
@@ -266,10 +264,6 @@ function codeReviewSignals(ctx: SignalContext, rule: (name: string, confidence?:
       out.push({ ...common, id: `sig-approved-${item.id}`, type: 'important_change', level: 'next',
         title: item.title, detail: `${cr.ref} is approved.`,
         why: 'Approved PRs go stale if they sit.', action: 'Merge it', derivation: rule('approved') });
-    } else if (cr.state === 'awaiting_review' && idle >= REVIEW_WAIT_DAYS) {
-      out.push({ ...common, id: `sig-waiting-${item.id}`, type: 'waiting', level: 'watch',
-        title: item.title, detail: `No activity on ${cr.ref} for ${idle} days.`,
-        why: 'Your PR may be stuck in the review queue.', action: 'Nudge the reviewer', derivation: rule('review-wait', 0.8) });
     }
   }
   return out;

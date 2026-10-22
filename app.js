@@ -196,9 +196,19 @@ window.startThreadline = (initial) => {
     return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⧉</span>Batches</div><span class="subtle-link">Do these together</span></div>${rows}</div></article>`;
   }
 
+  /** Your PRs waiting on reviewers. Nothing to do until one goes stale. */
+  function reviewQueueCard() {
+    const q = D.reviewQueue || [];
+    if (!q.length) return '';
+    const stale = q.filter(r => r.tier === 'stale').length;
+    const TIER = { stale: ['Needs a bump', 'accent'], aging: ['Aging', 'watch'], fresh: ['Fresh', 'good'] };
+    const rows = q.slice(0, 5).map(r => `<div class="list-row"><div><strong>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">PR #${esc(r.number)}</a>` : `PR #${esc(r.number)}`} · ${esc(r.title)}</strong><p>${esc(`${r.waitingDays} working day${r.waitingDays === 1 ? '' : 's'} waiting${r.reviewers.length ? ` on ${r.reviewers.join(', ')}` : ''}`)}</p></div>${pill(...TIER[r.tier])}</div>`).join('');
+    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⇄</span>In code review</div><span class="subtle-link">${stale ? `${stale} need a bump` : 'Waiting on reviewers'}</span></div>${rows}${q.length > 5 ? `<p class="settings-hint">+${q.length - 5} more on the Threads page.</p>` : ''}</div></article>`;
+  }
+
   function homePage(){
     const g = greetingParts();
-    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}${batchesCard()}</div><div class="stack">${todayCard()}${claudeCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
+    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}${batchesCard()}</div><div class="stack">${todayCard()}${claudeCard()}${reviewQueueCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
   }
 
   function attentionPage(){
@@ -218,7 +228,8 @@ window.startThreadline = (initial) => {
     return `<div class="page">${pageHeader('Projects','Work with a memory.','Each project holds its current state, goals, decisions, accomplishments, weekly reflection, and durable learnings.',pill(`${D.projects.length} active`,'good'))}<div class="entity-grid">${D.projects.map(projectMiniCard).join('')}</div></div>`;
   }
 
-  const THREAD_GROUPS = [['Needs you', ['Active']], ['Waiting on others', ['Waiting', 'Handed off']], ['Done', ['Done']]];
+  // Code review gets its own group: waiting on a reviewer is not your action.
+  const THREAD_GROUPS = [['Needs you', t => t.status === 'Active'], ['In code review', t => !!t.reviewState && t.status !== 'Active' && t.status !== 'Done'], ['Waiting on others', t => !t.reviewState && (t.status === 'Waiting' || t.status === 'Handed off')], ['Done', t => t.status === 'Done']];
 
   function threadCard(t) {
     const meta = [projectName(t.projectId), t.stage, t.updated].filter(Boolean).join(' · ');
@@ -229,10 +240,10 @@ window.startThreadline = (initial) => {
     const head = pageHeader('Threads', 'Context that survives the gap.', 'Each piece of work you touched recently, followed across Teamwork, GitHub, and Relay. Where you left off, what changed, and what happens next.', pill(`${D.threads.filter(t => t.status === 'Active').length} need you`, 'blue'));
     if (!D.threads.length) return `<div class="page">${head}${empty('No threads yet. They appear once you work on tasks in Teamwork.')}</div>`;
     const groups = THREAD_GROUPS.map(([label, statuses]) => {
-      const list = D.threads.filter(t => statuses.includes(t.status));
+      const list = D.threads.filter(statuses);
       return list.length ? `<section class="thread-group"><h2>${esc(label)} <span class="kicker" style="margin:0">${list.length}</span></h2><div class="entity-grid">${list.map(threadCard).join('')}</div></section>` : '';
     }).join('');
-    const other = D.threads.filter(t => !THREAD_GROUPS.some(([, s]) => s.includes(t.status)));
+    const other = D.threads.filter(t => !THREAD_GROUPS.some(([, test]) => test(t)));
     return `<div class="page">${head}${groups}${other.length ? `<div class="entity-grid">${other.map(threadCard).join('')}</div>` : ''}</div>`;
   }
 

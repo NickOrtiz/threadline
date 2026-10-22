@@ -143,6 +143,8 @@ export const ThreadView = z.object({
   candidateLearnings: z.array(z.string()),
   /** The source's board stage, such as "In Review". */
   stage: z.string().nullable().optional(),
+  /** In code review: "in_review" waits on a reviewer; "merged" means the PR merged while the ticket is still in review. */
+  reviewState: z.enum(['in_review', 'merged']).nullable().optional(),
   /** Links across systems: the task, pull requests, PRDs, and designs. */
   links: z.array(z.object({ label: z.string(), url: z.string(), kind: z.string(), state: z.string().nullable() })).optional(),
   /** What happened on this work, newest first. */
@@ -285,6 +287,12 @@ export const ThreadlineView = z.object({
   todos: z.array(TodoView).optional(),
   /** "While you were away". Present only after a meaningful gap. */
   continuity: ContinuityView.nullable().optional(),
+  /** Your pull requests waiting on reviewers, longest wait first. */
+  reviewQueue: z.array(z.object({
+    id: z.string(), ref: z.string(), number: z.string(), title: z.string(), url: z.string().nullable(),
+    projectId: z.string().nullable(), reviewers: z.array(z.string()), waitingSince: z.string(),
+    waitingDays: z.number(), tier: z.enum(['fresh', 'aging', 'stale']), checks: z.string().nullable(),
+  })).optional(),
   /** Related tickets worth doing together: in parallel, or back to back. */
   batches: z.array(z.object({
     id: z.string(),

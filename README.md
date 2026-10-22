@@ -358,6 +358,8 @@ If you leave `timezone` out, the sync uses the computer's zone. Setting it keeps
 | `leapsome.includeArchived` | `true` | Include goals from past cycles. |
 | `leapsome.maxAgeHours` | `24` | `npm start` re-imports when the last import is older. |
 | `leapsome.model` | `haiku` | The Claude model that runs the import. |
+| `codeReview.agingDays` | `2` | Working days before a PR waiting for review counts as aging. |
+| `codeReview.staleDays` | `4` | Working days before it needs a bump. |
 | `batching.switchMinutes` | `[5, 15]` | Minutes lost per switch between tickets, low and high. |
 | `batching.parallelSlots` | `3` | Tickets a parallel batch runs at once. |
 | `report.days` | `7` | How many days the Report page covers, today included. |
@@ -465,6 +467,14 @@ Threads are grouped into **Needs you**, **Waiting on others**, and **Done**. A t
 One rule raises a WATCH item: when every pull request on a task is merged but the task still sits in a review stage, the board no longer matches the work.
 
 **Notes.** Each thread has working notes for what future you should know. They are saved in `memory/notes.json`, which is git-ignored, and they never leave Threadline.
+
+## Code review queue
+
+Tickets and code reviews are kept apart. A pull request of yours that is waiting for review is not an action for you, so it never appears in your focus, in Next up, or under "Needs you". Instead, the home page's **In code review** card and the Threads page's **In code review** group list your PRs with how long each has waited and who it waits on.
+
+Waiting time counts working days since review was last requested, or since the PR opened. A PR is fresh at first, **aging** after `codeReview.agingDays` (2), and **needs a bump** after `codeReview.staleDays` (4). One WATCH item, such as "2 pull requests need a bump from reviewers", appears only when something is stale.
+
+A merged PR whose ticket still sits in a review stage is noted on its thread, without being counted as your action. The reviewer usually moves that ticket.
 
 ## Batches
 

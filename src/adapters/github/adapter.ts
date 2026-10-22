@@ -23,6 +23,8 @@ export interface GithubPullRequest {
   closedAt: string | null;
   repository: { nameWithOwner: string };
   latestReviews: { nodes: { state: string; submittedAt: string | null }[] };
+  reviewRequests?: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
+  timelineItems?: { nodes: { createdAt?: string }[] };
   commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
 }
 
@@ -57,6 +59,8 @@ fragment PR on PullRequest {
   number title url isDraft createdAt updatedAt reviewDecision state mergedAt closedAt
   repository { nameWithOwner }
   latestReviews(first: 10) { nodes { state submittedAt } }
+  reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login name } ... on Team { name } } } }
+  timelineItems(last: 1, itemTypes: [REVIEW_REQUESTED_EVENT]) { nodes { ... on ReviewRequestedEvent { createdAt } } }
   commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
 }`;
 

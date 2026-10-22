@@ -84,6 +84,12 @@ export const Config = z.object({
     maxAgeHours: z.number().positive().default(24),
     model: z.string().default('haiku'),
   }).default({ enabled: false, includeArchived: true, maxAgeHours: 24, model: 'haiku' }),
+  codeReview: z.object({
+    /** Working days a PR can wait for review before it counts as aging. */
+    agingDays: z.number().int().nonnegative().default(2),
+    /** Working days before it needs a bump from reviewers. */
+    staleDays: z.number().int().positive().default(4),
+  }).default({ agingDays: 2, staleDays: 4 }),
   batching: z.object({
     /** Minutes lost per switch between tickets, as a [low, high] range. */
     switchMinutes: z.tuple([z.number().nonnegative(), z.number().nonnegative()]).default([5, 15]),

@@ -78,7 +78,11 @@ export function normalizeGithubPullRequest(pr: GithubPullRequest, role: 'author'
     dueAt: null,
     nextAction,
     blockedBy: waiting ? ['Reviewer'] : [],
-    codeReview: { role, state, checks, ref },
+    codeReview: {
+      role, state, checks, ref,
+      reviewers: (pr.reviewRequests?.nodes ?? []).map(n => n.requestedReviewer?.name || n.requestedReviewer?.login).filter((x): x is string => !!x),
+      waitingSince: state === 'draft' ? null : pr.timelineItems?.nodes?.[0]?.createdAt ?? pr.createdAt,
+    },
     completedAt: pr.mergedAt ?? pr.closedAt ?? null,
     updatedAt: pr.updatedAt,
   };

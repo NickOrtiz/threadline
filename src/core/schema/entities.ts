@@ -54,6 +54,10 @@ export const CodeReviewState = z.object({
   checks: z.enum(['passing', 'failing', 'pending']).nullable(),
   /** Repository and number, e.g. "acme/website #42". */
   ref: z.string(),
+  /** People or teams the review waits on. */
+  reviewers: z.array(z.string()).default([]),
+  /** When review was last requested, or when the PR opened. Null for drafts. */
+  waitingSince: z.string().nullable().default(null),
 });
 export type CodeReviewState = z.infer<typeof CodeReviewState>;
 

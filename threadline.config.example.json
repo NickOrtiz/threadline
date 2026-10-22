@@ -92,5 +92,9 @@
       15
     ],
     "parallelSlots": 3
+  },
+  "codeReview": {
+    "agingDays": 2,
+    "staleDays": 4
   }
 }

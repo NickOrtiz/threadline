@@ -16,6 +16,7 @@ import { deriveReports, type DayStages } from './report.ts';
 import { deriveWeek, leaveAsEvents, type ProjectWeek } from './budget.ts';
 import { deriveThreads } from './threads.ts';
 import { deriveBatches } from './batches.ts';
+import { deriveReviewQueue } from './review-queue.ts';
 import type { ThreadNote } from '../../storage/notes.ts';
 import type { ClaudeUsage } from '../../storage/claude-usage.ts';
 import type { KnowledgeDocument, Requirement } from '../schema/entities.ts';
@@ -100,12 +101,16 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
     : allocation > 85 ? 'Tight' : 'Healthy';
 
   const threads = deriveThreads({ store, journal: extras.journal ?? [], notes: extras.notes ?? {}, now });
-  // A merged PR whose task still waits in review: the board just needs moving.
-  for (const t of threads.filter(t => t.nextAction.includes(' merged. Move the task'))) {
+  // Pull requests waiting on reviewers: one quiet item when some need a bump.
+  const reviewQueue = deriveReviewQueue(store.workItems, today, config.codeReview);
+  const stale = reviewQueue.filter(r => r.tier === 'stale');
+  if (stale.length) {
     attention.push({
-      id: `sig-merged-${t.id}`, level: 'watch', source: 'GitHub', sourceRef: t.stage ?? 'Review', sourceUrl: t.sourceUrl ?? null,
-      projectId: t.projectId || null, title: `${t.title}: merged, still in ${t.stage ?? 'review'}`,
-      detail: t.nextAction, why: 'The board no longer matches the work.', due: '—', action: 'Move the task in Teamwork', estimatedEffort: '1 min', status: 'Board out of date',
+      id: 'sig-review-queue', level: 'watch', source: 'GitHub', sourceRef: 'Review queue', sourceUrl: stale.length === 1 ? stale[0].url : null, projectId: null,
+      title: stale.length === 1 ? `${stale[0].ref} needs a bump from reviewers` : `${stale.length} pull requests need a bump from reviewers`,
+      detail: stale.slice(0, 4).map(r => `${r.ref} (${r.waitingDays} working days${r.reviewers.length ? `, ${r.reviewers.join(', ')}` : ''})`).join(' · ') + (stale.length > 4 ? ` · +${stale.length - 4} more` : ''),
+      why: `No review for ${config.codeReview.staleDays} or more working days.`,
+      due: '—', action: 'Ask the reviewers for a look', estimatedEffort: '5 min', status: 'Review stale',
     });
   }
   // Claude usage near a limit: worth knowing before starting a big code task.
@@ -181,6 +186,7 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
         .map(e => ({ date: e.date, kind: e.kind, title: e.title, detail: e.detail, url: e.url })),
     })),
     threads: [...threads, ...memory.threads],
+    reviewQueue,
     batches: deriveBatches({
       ranked, workItems: store.workItems, requirements: requirementsById, week: weekByProject,
       projectName: id => projectName(id) ?? id,

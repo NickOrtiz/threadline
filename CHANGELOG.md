@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+### Added
+
+- **Code review queue.** Your pull requests waiting on reviewers have their own home page card and Threads group, with working days waited and reviewers. One WATCH item appears when any need a bump.
+
+### Changed
+
+- A PR waiting for review no longer counts as an action for you. The per-PR "nudge the reviewer" items are replaced by the grouped one.
+- A merged PR whose ticket is still in review is noted on the thread, but no longer listed as your action.
+
 ## [0.5.0] - 2026-10-19
 
 ### Added
