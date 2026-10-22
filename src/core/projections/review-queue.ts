@@ -26,3 +26,20 @@ export function deriveReviewQueue(items: WorkItem[], today: string, thresholds: 
     })
     .sort((a, b) => b.waitingDays - a.waitingDays);
 }
+
+/** Pull requests where the next move is yours: fix, merge, or review someone else's. */
+export function deriveReviewActions(items: WorkItem[], today: string) {
+  const days = (iso: string) => workdaysBetween(localDate(new Date(iso)), today);
+  return items
+    .filter(w => w.mine && w.status !== 'done' && w.codeReview && (w.codeReview.role === 'reviewer'
+      || w.codeReview.state === 'changes_requested' || w.codeReview.state === 'approved' || w.codeReview.checks === 'failing'))
+    .map(w => {
+      const cr = w.codeReview!;
+      const kind = cr.role === 'reviewer' ? 'review_request' as const
+        : cr.checks === 'failing' ? 'checks' as const
+        : cr.state === 'changes_requested' ? 'changes' as const
+        : 'approved' as const;
+      return { id: w.id, ref: cr.ref, number: cr.ref.split('#')[1] ?? '', title: w.title.replace(/^Review: /, ''), url: w.source.url, projectId: w.projectId, kind, days: days(w.updatedAt) };
+    })
+    .sort((a, b) => b.days - a.days);
+}

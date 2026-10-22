@@ -16,7 +16,7 @@ import { deriveReports, type DayStages } from './report.ts';
 import { deriveWeek, leaveAsEvents, type ProjectWeek } from './budget.ts';
 import { deriveThreads } from './threads.ts';
 import { deriveBatches } from './batches.ts';
-import { deriveReviewQueue } from './review-queue.ts';
+import { deriveReviewActions, deriveReviewQueue } from './review-queue.ts';
 import type { ThreadNote } from '../../storage/notes.ts';
 import type { ClaudeUsage } from '../../storage/claude-usage.ts';
 import type { KnowledgeDocument, Requirement } from '../schema/entities.ts';
@@ -63,7 +63,8 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
   });
   const requirementsById = new Map(store.requirements.map(r => [r.id, r]));
   // Waiting and blocked work is someone else's move. It shows in attention, not in focus.
-  const actionable = ranked.filter(r => !r.stale && r.item.status !== 'waiting' && r.item.status !== 'blocked');
+  // Pull requests have their own queue in the code review card, so focus and Next up stay on tickets.
+  const actionable = ranked.filter(r => !r.stale && r.item.status !== 'waiting' && r.item.status !== 'blocked' && !r.item.codeReview);
   const top = actionable[0];
 
   // Today's focus time counts only what is left from now.
@@ -187,6 +188,7 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
     })),
     threads: [...threads, ...memory.threads],
     reviewQueue,
+    reviewActions: deriveReviewActions(store.workItems, today),
     batches: deriveBatches({
       ranked, workItems: store.workItems, requirements: requirementsById, week: weekByProject,
       projectName: id => projectName(id) ?? id,

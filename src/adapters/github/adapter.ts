@@ -24,8 +24,10 @@ export interface GithubPullRequest {
   repository: { nameWithOwner: string };
   latestReviews: { nodes: { state: string; submittedAt: string | null }[] };
   reviewRequests?: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
+  /** "Changes requested" reviews. latestReviews can come back empty even when one exists. */
+  changesRequested?: { nodes: { submittedAt: string | null }[] };
   timelineItems?: { nodes: { createdAt?: string }[] };
-  commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
+  commits: { nodes: { commit: { committedDate?: string; statusCheckRollup: { state: string } | null } }[] };
 }
 
 export interface GithubIssue {
@@ -59,9 +61,10 @@ fragment PR on PullRequest {
   number title url isDraft createdAt updatedAt reviewDecision state mergedAt closedAt
   repository { nameWithOwner }
   latestReviews(first: 10) { nodes { state submittedAt } }
+  changesRequested: reviews(last: 5, states: [CHANGES_REQUESTED]) { nodes { submittedAt } }
   reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login name } ... on Team { name } } } }
   timelineItems(last: 1, itemTypes: [REVIEW_REQUESTED_EVENT]) { nodes { ... on ReviewRequestedEvent { createdAt } } }
-  commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+  commits(last: 1) { nodes { commit { committedDate statusCheckRollup { state } } } }
 }`;
 
 export class GithubAdapter {

@@ -293,6 +293,11 @@ export const ThreadlineView = z.object({
     projectId: z.string().nullable(), reviewers: z.array(z.string()), waitingSince: z.string(),
     waitingDays: z.number(), tier: z.enum(['fresh', 'aging', 'stale']), checks: z.string().nullable(),
   })).optional(),
+  /** Pull requests where the next move is yours. */
+  reviewActions: z.array(z.object({
+    id: z.string(), ref: z.string(), number: z.string(), title: z.string(), url: z.string().nullable(), projectId: z.string().nullable(),
+    kind: z.enum(['changes', 'checks', 'approved', 'review_request']), days: z.number(),
+  })).optional(),
   /** Related tickets worth doing together: in parallel, or back to back. */
   batches: z.array(z.object({
     id: z.string(),

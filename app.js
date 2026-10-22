@@ -196,14 +196,22 @@ window.startThreadline = (initial) => {
     return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⧉</span>Batches</div><span class="subtle-link">Do these together</span></div>${rows}</div></article>`;
   }
 
-  /** Your PRs waiting on reviewers. Nothing to do until one goes stale. */
+  /** Pull requests, kept apart from tickets: your move, reviews for you, and waiting on reviewers. */
   function reviewQueueCard() {
-    const q = D.reviewQueue || [];
-    if (!q.length) return '';
-    const stale = q.filter(r => r.tier === 'stale').length;
+    const q = D.reviewQueue || [], acts = D.reviewActions || [];
+    if (!q.length && !acts.length) return '';
+    const prLink = r => r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">PR #${esc(r.number)}</a>` : `PR #${esc(r.number)}`;
+    const days = n => `${n} working day${n === 1 ? '' : 's'}`;
+    const ACT = { changes: ['Changes requested', 'accent'], checks: ['Checks failing', 'accent'], approved: ['Approved, ready to merge', 'good'], review_request: ['Review requested', 'blue'] };
     const TIER = { stale: ['Needs a bump', 'accent'], aging: ['Aging', 'watch'], fresh: ['Fresh', 'good'] };
-    const rows = q.slice(0, 5).map(r => `<div class="list-row"><div><strong>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">PR #${esc(r.number)}</a>` : `PR #${esc(r.number)}`} · ${esc(r.title)}</strong><p>${esc(`${r.waitingDays} working day${r.waitingDays === 1 ? '' : 's'} waiting${r.reviewers.length ? ` on ${r.reviewers.join(', ')}` : ''}`)}</p></div>${pill(...TIER[r.tier])}</div>`).join('');
-    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⇄</span>In code review</div><span class="subtle-link">${stale ? `${stale} need a bump` : 'Waiting on reviewers'}</span></div>${rows}${q.length > 5 ? `<p class="settings-hint">+${q.length - 5} more on the Threads page.</p>` : ''}</div></article>`;
+    const mine = acts.filter(a => a.kind !== 'review_request'), forYou = acts.filter(a => a.kind === 'review_request');
+    const section = (title, rows) => rows.length ? `<h3 class="kb-heading">${esc(title)}</h3>${rows.join('')}` : '';
+    const stale = q.filter(r => r.tier === 'stale').length;
+    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⇄</span>Code review</div><span class="subtle-link">${mine.length + forYou.length ? `${mine.length + forYou.length} for you` : stale ? `${stale} need a bump` : 'Waiting on reviewers'}</span></div>
+      ${section('Your move', mine.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong></div>${pill(...ACT[a.kind])}</div>`))}
+      ${section('Reviews for you', forYou.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong><p>${esc(`Waiting on you ${days(a.days)}`)}</p></div>${pill(...ACT.review_request)}</div>`))}
+      ${section('Waiting on reviewers', q.slice(0, 5).map(r => `<div class="list-row"><div><strong>${prLink(r)} · ${esc(r.title)}</strong><p>${esc(`${days(r.waitingDays)} waiting${r.reviewers.length ? ` on ${r.reviewers.join(', ')}` : ''}`)}</p></div>${pill(...TIER[r.tier])}</div>`))}
+      ${q.length > 5 ? `<p class="settings-hint">+${q.length - 5} more waiting on reviewers.</p>` : ''}</div></article>`;
   }
 
   function homePage(){

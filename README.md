@@ -470,7 +470,13 @@ One rule raises a WATCH item: when every pull request on a task is merged but th
 
 ## Code review queue
 
-Tickets and code reviews are kept apart. A pull request of yours that is waiting for review is not an action for you, so it never appears in your focus, in Next up, or under "Needs you". Instead, the home page's **In code review** card and the Threads page's **In code review** group list your PRs with how long each has waited and who it waits on.
+Tickets and code reviews are kept apart. Focus and Next up show tickets only: Teamwork tasks, to-dos, and issues. Pull requests live in the home page's **Code review** card, in three sections:
+
+- **Your move:** your PRs with changes requested, failing checks, or approval to merge.
+- **Reviews for you:** other people's PRs waiting on your review.
+- **Waiting on reviewers:** your PRs with how long each has waited and who it waits on. These are never an action for you, and the Threads page groups them under **In code review**.
+
+GitHub keeps "changes requested" until the reviewer reviews again. When you push commits or request review after that review, Threadline counts the PR as waiting for re-review, and its timer starts from your fix.
 
 Waiting time counts working days since review was last requested, or since the PR opened. A PR is fresh at first, **aging** after `codeReview.agingDays` (2), and **needs a bump** after `codeReview.staleDays` (4). One WATCH item, such as "2 pull requests need a bump from reviewers", appears only when something is stale.
 

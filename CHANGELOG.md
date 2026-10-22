@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+### Changed
+
+- Focus and Next up show tickets only. Pull requests have their own queue in the home page's Code review card: your move, reviews for you, and waiting on reviewers.
+
+### Fixed
+
+- A PR with "changes requested" whose fixes were already pushed, or whose review was requested again, now counts as waiting for re-review instead of your action.
+
 ### Added
 
 - **Code review queue.** Your pull requests waiting on reviewers have their own home page card and Threads group, with working days waited and reviewers. One WATCH item appears when any need a bump.

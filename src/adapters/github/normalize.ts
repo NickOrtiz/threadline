@@ -33,11 +33,24 @@ function checksState(pr: GithubPullRequest): CodeReviewState['checks'] {
   return 'pending';
 }
 
+/**
+ * GitHub keeps "changes requested" until the reviewer reviews again, even
+ * after the author pushes fixes. Commits or a fresh review request after
+ * that review mean the PR waits on the reviewer.
+ */
+function addressedSince(pr: GithubPullRequest): string | null {
+  const reviewedAt = [...(pr.changesRequested?.nodes ?? []), ...pr.latestReviews.nodes.filter(r => r.state === 'CHANGES_REQUESTED')]
+    .map(r => r.submittedAt).filter((d): d is string => !!d).sort().at(-1);
+  if (!reviewedAt) return null;
+  const after = [pr.commits.nodes[0]?.commit.committedDate, pr.timelineItems?.nodes?.[0]?.createdAt].filter((d): d is string => !!d && d > reviewedAt).sort();
+  return after.at(-1) ?? null;
+}
+
 function reviewState(pr: GithubPullRequest): CodeReviewState['state'] {
   if (pr.state === 'MERGED') return 'merged';
   if (pr.state === 'CLOSED') return 'closed';
   if (pr.isDraft) return 'draft';
-  if (pr.reviewDecision === 'CHANGES_REQUESTED') return 'changes_requested';
+  if (pr.reviewDecision === 'CHANGES_REQUESTED') return addressedSince(pr) ? 'awaiting_review' : 'changes_requested';
   if (pr.reviewDecision === 'APPROVED') return 'approved';
   return 'awaiting_review';
 }
@@ -81,7 +94,7 @@ export function normalizeGithubPullRequest(pr: GithubPullRequest, role: 'author'
     codeReview: {
       role, state, checks, ref,
       reviewers: (pr.reviewRequests?.nodes ?? []).map(n => n.requestedReviewer?.name || n.requestedReviewer?.login).filter((x): x is string => !!x),
-      waitingSince: state === 'draft' ? null : pr.timelineItems?.nodes?.[0]?.createdAt ?? pr.createdAt,
+      waitingSince: state === 'draft' ? null : addressedSince(pr) ?? pr.timelineItems?.nodes?.[0]?.createdAt ?? pr.createdAt,
     },
     completedAt: pr.mergedAt ?? pr.closedAt ?? null,
     updatedAt: pr.updatedAt,
