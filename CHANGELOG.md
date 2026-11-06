@@ -6,24 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-06
+
+### Added
+
+- **Code review queue.** Your pull requests have their own queue, apart from tickets. The home page's Code review tab has four sections: your move, reviews for you, waiting on reviewers, and approved but not merged. Waiting PRs show working days waited and who they wait on. One WATCH item appears when any need a bump from reviewers.
+
 ### Changed
 
 - Next up, Batches, and Code review share one home page card, as tabs with counts. A dot on Code review means a pull request needs your move. Each tab shows a few rows and a **Show more** button, and the card remembers the last tab you chose.
-- Approved pull requests have their own **Approved, not merged** section, because who merges depends on the project. They no longer add one NEXT item each. One WATCH item appears when any sit for 4 or more working days, and their threads move to **In code review**.
-- Focus and Next up show tickets only. Pull requests have their own queue in the home page's Code review card: your move, reviews for you, and waiting on reviewers.
+- Focus and Next up show tickets only.
+- A PR waiting for review no longer counts as an action for you. One grouped WATCH item replaces the per-PR "nudge the reviewer" items.
+- Approved pull requests are no longer counted as yours, because who merges depends on the project. They no longer add one NEXT item each. One WATCH item appears when any sit for 4 or more working days, and their threads move to **In code review**.
+- A merged PR whose ticket is still in review is noted on the thread, but no longer listed as your action.
 
 ### Fixed
 
 - A PR with "changes requested" whose fixes were already pushed, or whose review was requested again, now counts as waiting for re-review instead of your action.
-
-### Added
-
-- **Code review queue.** Your pull requests waiting on reviewers have their own home page card and Threads group, with working days waited and reviewers. One WATCH item appears when any need a bump.
-
-### Changed
-
-- A PR waiting for review no longer counts as an action for you. The per-PR "nudge the reviewer" items are replaced by the grouped one.
-- A merged PR whose ticket is still in review is noted on the thread, but no longer listed as your action.
+- The home page no longer scrolls sideways on narrow phones.
 
 ## [0.5.0] - 2026-10-19
 
@@ -90,7 +90,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - Settings page with light, dark, and system themes.
 - Demo fixtures and an example config with dummy data.
 
-[Unreleased]: https://github.com/NickOrtiz/threadline/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/NickOrtiz/threadline/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/NickOrtiz/threadline/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/NickOrtiz/threadline/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/NickOrtiz/threadline/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/NickOrtiz/threadline/compare/v0.2.0...v0.3.0
