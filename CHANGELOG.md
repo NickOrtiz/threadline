@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ### Changed
 
+- Next up, Batches, and Code review share one home page card, as tabs with counts. A dot on Code review means a pull request needs your move. Each tab shows a few rows and a **Show more** button, and the card remembers the last tab you chose.
+- Approved pull requests have their own **Approved, not merged** section, because who merges depends on the project. They no longer add one NEXT item each. One WATCH item appears when any sit for 4 or more working days, and their threads move to **In code review**.
 - Focus and Next up show tickets only. Pull requests have their own queue in the home page's Code review card: your move, reviews for you, and waiting on reviewers.
 
 ### Fixed

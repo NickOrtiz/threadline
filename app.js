@@ -140,10 +140,40 @@ window.startThreadline = (initial) => {
     </div></article>`;
   }
 
-  function nextUpCard() {
-    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">↳</span>Next up</div><div class="card-links">${canEdit() ? `<button type="button" class="subtle-link link-button" data-toggle-add>+ Add to-do</button>` : ''}<a class="subtle-link" href="#/todos">To-dos →</a></div></div>${canEdit() ? todoForm(true) : ''}<ol class="next-list">
-      ${D.nextUp.length ? (() => { let n = 0; return D.nextUp.map(x=>`<li class="next-item">${x.todoId && canEdit() ? `<button type="button" class="todo-check" data-todo-done="${esc(x.todoId)}" aria-label="Mark ${esc(x.title)} done"></button>` : `<span class="rank">${++n}</span>`}<div class="next-main"><strong>${x.sourceUrl?`<a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title)}</strong><div class="next-meta"><span>${esc(x.source)}</span>${x.prd ? `<span>·</span><span title="${esc(x.prd.title)}">${esc(x.prd.code || 'PRD')}${x.prd.openQuestions ? ` · ${x.prd.openQuestions} open Q` : ''}</span>` : ''}${projectName(x.projectId)?`<span>·</span><span>${esc(projectName(x.projectId))}</span>`:''}</div></div><span class="next-estimate">${esc(x.estimate)}</span></li>`).join(''); })() : empty('Nothing else is queued.')}
-    </ol></div></article>`;
+  // The work queue card: Next up, Batches, and Code review share one card,
+  // one tab at a time, so the home page stays short. Long lists show a few
+  // rows and a "Show more" button.
+  const QUEUE_TABS = ['next', 'batches', 'review'];
+  const QUEUE_LIMIT = { next: 5, batches: 2, review: 6 };
+  let queueTab = (() => { try { return QUEUE_TABS.includes(localStorage.getItem('threadline.queueTab')) ? localStorage.getItem('threadline.queueTab') : 'next'; } catch { return 'next'; } })();
+  const queueExpanded = {};
+  const moreButton = (tab, hidden, noun) => hidden > 0 && !queueExpanded[tab] ? `<button type="button" class="subtle-link link-button queue-more" data-queue-more="${tab}">Show ${hidden} more ${noun}</button>` : '';
+  const capped = (tab, list) => queueExpanded[tab] ? list : list.slice(0, QUEUE_LIMIT[tab]);
+
+  function nextUpPanel() {
+    const list = D.nextUp;
+    const rows = list.length ? (() => { let n = 0; return capped('next', list).map(x=>`<li class="next-item">${x.todoId && canEdit() ? `<button type="button" class="todo-check" data-todo-done="${esc(x.todoId)}" aria-label="Mark ${esc(x.title)} done"></button>` : `<span class="rank">${++n}</span>`}<div class="next-main"><strong>${x.sourceUrl?`<a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener">${esc(x.title)}</a>`:esc(x.title)}</strong><div class="next-meta"><span>${esc(x.source)}</span>${x.prd ? `<span>·</span><span title="${esc(x.prd.title)}">${esc(x.prd.code || 'PRD')}${x.prd.openQuestions ? ` · ${x.prd.openQuestions} open Q` : ''}</span>` : ''}${projectName(x.projectId)?`<span>·</span><span>${esc(projectName(x.projectId))}</span>`:''}</div></div><span class="next-estimate">${esc(x.estimate)}</span></li>`).join(''); })() : empty('Nothing else is queued.');
+    return {
+      links: `${canEdit() ? `<button type="button" class="subtle-link link-button" data-toggle-add>+ Add to-do</button>` : ''}<a class="subtle-link" href="#/todos">To-dos →</a>`,
+      body: `${canEdit() ? todoForm(true) : ''}<ol class="next-list">${rows}</ol>${moreButton('next', list.length - QUEUE_LIMIT.next, 'tasks')}`,
+    };
+  }
+
+  function queueCard() {
+    const acts = D.reviewActions || [];
+    const reviewCount = acts.length + (D.reviewQueue || []).length;
+    const tabs = [
+      { id: 'next', label: 'Next up', count: D.nextUp.length, panel: nextUpPanel },
+      { id: 'batches', label: 'Batches', count: (D.batches || []).length, panel: batchesPanel },
+      // A dot marks pull requests where the next move is yours.
+      { id: 'review', label: 'Code review', count: reviewCount, panel: reviewPanel, dot: acts.some(a => a.kind !== 'approved') },
+    ].filter(t => t.id === 'next' || t.count);
+    const active = tabs.find(t => t.id === queueTab) || tabs[0];
+    const { links, body } = active.panel();
+    const tabButton = t => `<button type="button" role="tab" id="queue-tab-${t.id}" class="detail-tab queue-tab ${t === active ? 'active' : ''}" aria-selected="${t === active}" aria-controls="queue-panel" tabindex="${t === active ? 0 : -1}" data-queue-tab="${t.id}">${esc(t.label)} <span class="queue-count">${t.count}</span>${t.dot ? '<span class="queue-dot" title="Your move on a pull request"><span class="sr-only">, your move</span></span>' : ''}</button>`;
+    return `<article class="card queue-card"><div class="card-inner">
+      <div class="card-header queue-header"><div class="detail-tabs queue-tabs" role="tablist" aria-label="Work queue">${tabs.map(tabButton).join('')}</div><div class="card-links">${links}</div></div>
+      <div id="queue-panel" role="tabpanel" aria-labelledby="queue-tab-${active.id}">${body}</div></div></article>`;
   }
 
   /** Claude plan usage: one row per window, with a bar and its reset time. */
@@ -179,10 +209,9 @@ window.startThreadline = (initial) => {
   }
 
   /** Related tickets worth doing together, with a brief to paste into a worktree tool. */
-  function batchesCard() {
-    const batches = (D.batches || []).slice(0, 3);
-    if (!batches.length) return '';
-    const rows = batches.map((b, i) => {
+  function batchesPanel() {
+    const all = D.batches || [];
+    const rows = capped('batches', all).map((b, i) => {
       const est = b.estimateMinutes ? `${Math.round(b.estimateMinutes / 6) / 10} h` : 'not estimated';
       const saved = `saves about ${b.rampSavedMinutes[0]}–${b.rampSavedMinutes[1]} min`;
       return `<div class="batch-row">
@@ -193,30 +222,41 @@ window.startThreadline = (initial) => {
         <button type="button" class="secondary-button" data-copy-batch="${i}">Copy brief</button>
       </div>`;
     }).join('');
-    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⧉</span>Batches</div><span class="subtle-link">Do these together</span></div>${rows}</div></article>`;
+    return { links: '<span class="subtle-link">Do these together</span>', body: `${rows}${moreButton('batches', all.length - QUEUE_LIMIT.batches, all.length - QUEUE_LIMIT.batches === 1 ? 'batch' : 'batches')}` };
   }
 
   /** Pull requests, kept apart from tickets: your move, reviews for you, and waiting on reviewers. */
-  function reviewQueueCard() {
+  function reviewPanel() {
     const q = D.reviewQueue || [], acts = D.reviewActions || [];
-    if (!q.length && !acts.length) return '';
     const prLink = r => r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">PR #${esc(r.number)}</a>` : `PR #${esc(r.number)}`;
     const days = n => `${n} working day${n === 1 ? '' : 's'}`;
-    const ACT = { changes: ['Changes requested', 'accent'], checks: ['Checks failing', 'accent'], approved: ['Approved, ready to merge', 'good'], review_request: ['Review requested', 'blue'] };
+    const ACT = { changes: ['Changes requested', 'accent'], checks: ['Checks failing', 'accent'], approved: ['Approved', 'good'], review_request: ['Review requested', 'blue'] };
     const TIER = { stale: ['Needs a bump', 'accent'], aging: ['Aging', 'watch'], fresh: ['Fresh', 'good'] };
-    const mine = acts.filter(a => a.kind !== 'review_request'), forYou = acts.filter(a => a.kind === 'review_request');
+    // Approved PRs are neither yours nor waiting: who merges depends on the project.
+    const mine = acts.filter(a => a.kind === 'changes' || a.kind === 'checks'), forYou = acts.filter(a => a.kind === 'review_request'), approved = acts.filter(a => a.kind === 'approved');
     const section = (title, rows) => rows.length ? `<h3 class="kb-heading">${esc(title)}</h3>${rows.join('')}` : '';
     const stale = q.filter(r => r.tier === 'stale').length;
-    return `<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">⇄</span>Code review</div><span class="subtle-link">${mine.length + forYou.length ? `${mine.length + forYou.length} for you` : stale ? `${stale} need a bump` : 'Waiting on reviewers'}</span></div>
-      ${section('Your move', mine.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong></div>${pill(...ACT[a.kind])}</div>`))}
-      ${section('Reviews for you', forYou.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong><p>${esc(`Waiting on you ${days(a.days)}`)}</p></div>${pill(...ACT.review_request)}</div>`))}
-      ${section('Waiting on reviewers', q.slice(0, 5).map(r => `<div class="list-row"><div><strong>${prLink(r)} · ${esc(r.title)}</strong><p>${esc(`${days(r.waitingDays)} waiting${r.reviewers.length ? ` on ${r.reviewers.join(', ')}` : ''}`)}</p></div>${pill(...TIER[r.tier])}</div>`))}
-      ${q.length > 5 ? `<p class="settings-hint">+${q.length - 5} more waiting on reviewers.</p>` : ''}</div></article>`;
+    const sections = [
+      ['Your move', mine.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong></div>${pill(...ACT[a.kind])}</div>`)],
+      ['Reviews for you', forYou.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong><p>${esc(a.days ? `Waiting on you ${days(a.days)}` : 'Requested today')}</p></div>${pill(...ACT.review_request)}</div>`)],
+      ['Waiting on reviewers', q.map(r => `<div class="list-row"><div><strong>${prLink(r)} · ${esc(r.title)}</strong><p>${esc(`${days(r.waitingDays)} waiting${r.reviewers.length ? ` on ${r.reviewers.join(', ')}` : ''}`)}</p></div>${pill(...TIER[r.tier])}</div>`)],
+      ['Approved, not merged', approved.map(a => `<div class="list-row"><div><strong>${prLink(a)} · ${esc(a.title)}</strong><p>${esc(a.days ? `No activity for ${days(a.days)}` : 'Active today')}</p></div>${pill(...ACT.approved)}</div>`)],
+    ];
+    // Collapsed, the panel shows a few rows: one from each section first, then the rest in order.
+    const total = sections.reduce((n, [, rows]) => n + rows.length, 0);
+    const shown = sections.map(([, rows]) => queueExpanded.review ? rows.length : Math.min(rows.length, 1));
+    for (let i = 0, left = QUEUE_LIMIT.review - shown.reduce((a, b) => a + b, 0); i < sections.length && left > 0 && !queueExpanded.review; i++) {
+      const add = Math.min(left, sections[i][1].length - shown[i]); shown[i] += add; left -= add;
+    }
+    return {
+      links: `<span class="subtle-link">${mine.length + forYou.length ? `${mine.length + forYou.length} for you` : stale ? `${stale} need a bump` : 'Waiting on reviewers'}</span>`,
+      body: `${sections.map(([title, rows], i) => section(title, rows.slice(0, shown[i]))).join('')}${moreButton('review', total - shown.reduce((a, b) => a + b, 0), total - shown.reduce((a, b) => a + b, 0) === 1 ? 'pull request' : 'pull requests')}`,
+    };
   }
 
   function homePage(){
     const g = greetingParts();
-    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${nextUpCard()}${batchesCard()}${reviewQueueCard()}</div><div class="stack">${todayCard()}${claudeCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
+    return `<div class="page">${pageHeader(g.date,g.headline,D.daily.subhead,(nowCount()?pill(`${nowCount()} decision${nowCount()===1?'':'s'}`,'accent'):'')+pill(`${D.daily.capacity.focusHours}h focus`,'good'))}${continuityCard_home()}${zenHero()}<div class="home-grid"><div class="stack">${focusCard()}${queueCard()}</div><div class="stack">${todayCard()}${claudeCard()}<article class="card"><div class="card-inner"><div class="card-header"><div class="card-title"><span class="glyph">□</span>Project pulse</div><a class="subtle-link" href="#/projects">All projects →</a></div>${pulseProjects().map(p=>p.week ? `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(`${p.week.logged} of ${p.week.booked} h booked this week`)}${p.week.status==='behind'?` · <span class="pulse-behind">behind</span>`:p.week.status==='over'?` · <span class="pulse-behind">over</span>`:''}</p></div><span style="min-width:94px">${progress(Math.min(100, Math.round(p.week.logged / Math.max(p.week.booked, 0.1) * 100)))}</span></div>` : `<div class="list-row"><div><strong>${esc(p.name)}</strong><p>${esc(p.nextMilestone)}</p></div><span style="min-width:94px">${progress(p.progress)}</span></div>`).join('')}</div></article></div></div></div>`;
   }
 
   function attentionPage(){
@@ -599,6 +639,16 @@ window.startThreadline = (initial) => {
       try { await navigator.clipboard.writeText(batch.brief); ok = true; } catch {}
       const t = b.textContent; b.textContent = ok ? 'Copied' : 'Copy failed'; setTimeout(() => { b.textContent = t; }, 1600);
     }));
+    const queueTabs = [...document.querySelectorAll('[data-queue-tab]')];
+    const pickQueueTab = id => { queueTab = id; try { localStorage.setItem('threadline.queueTab', id); } catch {} route(true); document.getElementById(`queue-tab-${id}`)?.focus(); };
+    queueTabs.forEach((btn, i) => {
+      btn.addEventListener('click', () => pickQueueTab(btn.dataset.queueTab));
+      btn.addEventListener('keydown', e => {
+        const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (step) { e.preventDefault(); pickQueueTab(queueTabs[(i + step + queueTabs.length) % queueTabs.length].dataset.queueTab); }
+      });
+    });
+    document.querySelectorAll('[data-queue-more]').forEach(b => b.addEventListener('click', () => { queueExpanded[b.dataset.queueMore] = true; route(true); }));
     document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{activeDetailTab=btn.dataset.tab;route();}));
     document.querySelector('[data-note-form]')?.addEventListener('submit', async e => {
       e.preventDefault();

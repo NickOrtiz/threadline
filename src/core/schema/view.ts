@@ -144,7 +144,7 @@ export const ThreadView = z.object({
   /** The source's board stage, such as "In Review". */
   stage: z.string().nullable().optional(),
   /** In code review: "in_review" waits on a reviewer; "merged" means the PR merged while the ticket is still in review. */
-  reviewState: z.enum(['in_review', 'merged']).nullable().optional(),
+  reviewState: z.enum(['in_review', 'approved', 'merged']).nullable().optional(),
   /** Links across systems: the task, pull requests, PRDs, and designs. */
   links: z.array(z.object({ label: z.string(), url: z.string(), kind: z.string(), state: z.string().nullable() })).optional(),
   /** What happened on this work, newest first. */

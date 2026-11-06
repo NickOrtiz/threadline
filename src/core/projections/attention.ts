@@ -260,11 +260,8 @@ function codeReviewSignals(ctx: SignalContext, rule: (name: string, confidence?:
       out.push({ ...common, id: `sig-changes-${item.id}`, type: 'response_needed', level: 'next',
         title: item.title, detail: `Changes requested on ${cr.ref}.`,
         why: 'The PR cannot merge until you respond.', action: 'Address the requested changes', derivation: rule('changes-requested') });
-    } else if (cr.state === 'approved') {
-      out.push({ ...common, id: `sig-approved-${item.id}`, type: 'important_change', level: 'next',
-        title: item.title, detail: `${cr.ref} is approved.`,
-        why: 'Approved PRs go stale if they sit.', action: 'Merge it', derivation: rule('approved') });
     }
+    // Approved PRs get one grouped WATCH item in the view: who merges depends on the project.
   }
   return out;
 }

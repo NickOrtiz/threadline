@@ -110,9 +110,11 @@ export function deriveThreads({ store, journal, notes, now }: ThreadInput) {
     // Every linked PR is merged, but the task still waits in a review stage.
     const mergedButWaiting = task.mine && task.status === 'waiting' && prs.length > 0 && prs.every(p => stateOf(p) === 'merged');
     // Something on the thread needs you, whatever the board stage says.
-    const needsYou = task.status !== 'done' && (!!changes || !!failing || !!approved || task.needsResponse);
+    const needsYou = task.status !== 'done' && (!!changes || !!failing || task.needsResponse);
     const status = task.status === 'done' ? 'Done'
       : needsYou ? 'Active'
+      // An approved PR waits on a merge, whoever does it on this project.
+      : approved ? 'Waiting'
       : !task.mine ? 'Handed off'
       : task.status === 'waiting' || task.status === 'blocked' ? 'Waiting'
       : 'Active';
@@ -122,7 +124,7 @@ export function deriveThreads({ store, journal, notes, now }: ThreadInput) {
       : changes ? `Address the requested changes on ${changes.ref}.`
       : failing ? `Fix the failing checks on ${failing.ref}.`
       : task.needsResponse ? 'Respond to the feedback.'
-      : approved ? `Merge ${approved.ref}.`
+      : approved ? `${approved.ref} is approved. Merge it, or wait for whoever merges on this project.`
       : status === 'Handed off' ? 'Nothing for you until it comes back.'
       : status === 'Waiting' ? `Nothing for you until ${waitingOn[0] ?? 'it moves'}.`
       : task.nextAction ?? (prs.length ? `Continue on ${prs[0].ref}.` : 'Continue the work.');
@@ -173,9 +175,10 @@ export function deriveThreads({ store, journal, notes, now }: ThreadInput) {
         restart: openPrs[0] ? `Open ${openPrs[0].ref}${prds[0] ? ` beside ${prds[0].code ?? 'the PRD'}` : ''}.` : prds[0] ? `Re-read ${prds[0].code ?? 'the PRD'}, then open the task.` : 'Open the task and read the latest comment.',
       },
       candidateLearnings: [],
-      /** In code review: waiting on a reviewer, or merged while the ticket is still in review. */
+      /** In code review: waiting on a reviewer, approved and not merged, or merged while the ticket is still in review. */
       reviewState: status === 'Done' || needsYou ? null
         : mergedButWaiting ? 'merged'
+        : approved ? 'approved'
         : openPrs.some(p => stateOf(p) === 'awaiting_review') || /review|qa/i.test(task.stage ?? '') ? 'in_review'
         : null,
       mergedButWaiting,

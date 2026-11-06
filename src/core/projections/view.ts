@@ -114,6 +114,18 @@ export function buildView(store: EntityStore, memory: Memory, config: Config, no
       due: '—', action: 'Ask the reviewers for a look', estimatedEffort: '5 min', status: 'Review stale',
     });
   }
+  // Approved but not merged. Some projects merge their own PRs and some leave it
+  // to the reviewer, so this is one quiet reminder, not an action per PR.
+  const approvedIdle = deriveReviewActions(store.workItems, today).filter(a => a.kind === 'approved' && a.days >= config.codeReview.staleDays);
+  if (approvedIdle.length) {
+    attention.push({
+      id: 'sig-approved-idle', level: 'watch', source: 'GitHub', sourceRef: 'Review queue', sourceUrl: approvedIdle.length === 1 ? approvedIdle[0].url : null, projectId: null,
+      title: approvedIdle.length === 1 ? `PR #${approvedIdle[0].number} is approved but not merged` : `${approvedIdle.length} approved pull requests are not merged`,
+      detail: approvedIdle.slice(0, 4).map(a => `PR #${a.number} (${a.days} working days)`).join(' · ') + (approvedIdle.length > 4 ? ` · +${approvedIdle.length - 4} more` : ''),
+      why: `Approved, with no activity for ${config.codeReview.staleDays} or more working days.`,
+      due: '—', action: 'Merge them, or check who merges on that project', estimatedEffort: '5 min', status: 'Approved',
+    });
+  }
   // Claude usage near a limit: worth knowing before starting a big code task.
   const claudeNow = claudeView(extras.claudeUsage ?? null, now);
   for (const w of claudeNow && !claudeNow.stale ? claudeNow.windows : []) {

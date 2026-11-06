@@ -404,7 +404,7 @@ All colors in `styles.css` are tokens on `:root`. The dark theme is one block un
 
 Some work has no ticket: updating a local toolchain, rebuilding a database, a follow-up you promised in a meeting. Add it as a to-do.
 
-- On the home page, select **+ Add to-do** in the Next up card. You can also open the **To-dos** page from that card.
+- On the home page, select **+ Add to-do** on the Next up tab. You can also open the **To-dos** page from that card.
 - A to-do has a title, plus an optional project, due date, and estimate.
 - To-dos rank with your Teamwork and GitHub work. They can become your current focus, they count toward today's capacity, and they get the same due-date and stale-date rules.
 - Check one off in Next up, in the focus card, or on the To-dos page. Done to-dos stay on the To-dos page for 7 days, and they count toward the project's weekly wins.
@@ -470,11 +470,12 @@ One rule raises a WATCH item: when every pull request on a task is merged but th
 
 ## Code review queue
 
-Tickets and code reviews are kept apart. Focus and Next up show tickets only: Teamwork tasks, to-dos, and issues. Pull requests live in the home page's **Code review** card, in three sections:
+Tickets and code reviews are kept apart. Focus and Next up show tickets only: Teamwork tasks, to-dos, and issues. Pull requests live on the home page's **Code review** tab, in three sections:
 
-- **Your move:** your PRs with changes requested, failing checks, or approval to merge.
+- **Your move:** your PRs with changes requested or failing checks.
 - **Reviews for you:** other people's PRs waiting on your review.
 - **Waiting on reviewers:** your PRs with how long each has waited and who it waits on. These are never an action for you, and the Threads page groups them under **In code review**.
+- **Approved, not merged:** your approved PRs. Some projects merge their own PRs and some leave it to the reviewer, so these are not counted as yours. One WATCH item appears when any sit for `codeReview.staleDays` working days.
 
 GitHub keeps "changes requested" until the reviewer reviews again. When you push commits or request review after that review, Threadline counts the PR as waiting for re-review, and its timer starts from your fix.
 
@@ -484,7 +485,7 @@ A merged PR whose ticket still sits in a review stage is noted on its thread, wi
 
 ## Batches
 
-To cut ramp-up time, the home page suggests tickets worth doing together, under **Batches**. Tickets group by project, then by epic code (such as `E 5.x`), title prefix (such as `Core block:`), or tasklist.
+To cut ramp-up time, the home page suggests tickets worth doing together, on the **Batches** tab. Tickets group by project, then by epic code (such as `E 5.x`), title prefix (such as `Core block:`), or tasklist.
 
 | Kind | When | How to do it |
 | --- | --- | --- |
